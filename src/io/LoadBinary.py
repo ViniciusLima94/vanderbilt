@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import xarray as xr
 from .errors import error_msg
+from .io_utils import fread
 
 
 def perpl_LoadBinary(
@@ -16,7 +17,7 @@ def perpl_LoadBinary(
     precision: type = np.int16,
     downsample: int = None,
     bitVolts: float = 0.195,
-    verbose: bool = False
+    verbose: bool = False,
 ) -> xr.DataArray:
     """
     Load data binaries and apply the appropriate parameters.
@@ -84,13 +85,15 @@ def perpl_LoadBinary(
 
     if verbose:
         logging.getLogger().setLevel(logging.INFO)
-        logging.info(f"Loading binaries from {filename} with:\n"
-                     f"fsample = {frequency}, start = {start}, "
-                     f"duration = {duration}, offset = {offset}, "
-                     f"nSamplesPerChannel = {nSamplesPerChannel}, "
-                     f"nChannels = {nChannels}, "
-                     f"precision = {precision}, downsample = {downsample}, "
-                     f"bitVolts = {bitVolts}.")
+        logging.info(
+            f"Loading binaries from {filename} with:\n"
+            f"fsample = {frequency}, start = {start}, "
+            f"duration = {duration}, offset = {offset}, "
+            f"nSamplesPerChannel = {nSamplesPerChannel}, "
+            f"nChannels = {nChannels}, "
+            f"precision = {precision}, downsample = {downsample}, "
+            f"bitVolts = {bitVolts}."
+        )
 
     ##########################################################################
     # Loading Files
@@ -125,7 +128,9 @@ def perpl_LoadBinary(
     if ((not time) and (not samples)) or (nSamplesPerChannel > maxNSamplesPerChannel):
         nSamplesPerChannel = int(maxNSamplesPerChannel)
 
+    # Nsamples of final data array after downsample
     if isinstance(downsample, int):
+        skip = int(nChannels * (downsample - 1) * sampleSize)
         nSamplesPerChannel = int(np.floor(nSamplesPerChannel / downsample))
 
     # For large amounts of data, read chunk by chunk
@@ -134,9 +139,7 @@ def perpl_LoadBinary(
 
     # Wheter it will be converter to volts
     if nSamples <= maxSamplesPerChunk:
-        data = np.fromfile(f, dtype=precision, count=nSamples).reshape(
-            int(nSamples / nChannels), nChannels
-        )
+        data = fread(f, nChannels, channels, nSamples, precision, skip)
     else:
         # Determine chunk duration and number of chunks
         nSamplesPerChunk = int(np.floor(maxSamplesPerChunk / nChannels)) * nChannels
@@ -146,9 +149,10 @@ def perpl_LoadBinary(
         # Read all chunks
         i = 0
         for _ in range(nChunks):
-            d = np.fromfile(f, dtype=precision, count=nSamplesPerChunk).reshape(
-                int(nSamplesPerChunk / nChannels), nChannels
-            )
+            # d = np.fromfile(f, dtype=precision, count=nSamplesPerChunk).reshape(
+            # int(nSamplesPerChunk / nChannels), nChannels
+            # )
+            d = fread(f, nChannels, channels, nSamplesPerChunk, precision, skip)
             m, n = d.shape
             if m == 0:
                 break
@@ -157,9 +161,10 @@ def perpl_LoadBinary(
         # If the data size is not a multiple of the chunk size, read the remainder
         remainder = nSamples - nChunks * nSamplesPerChunk
         if remainder != 0:
-            d = np.fromfile(f, dtype=precision, count=remainder).reshape(
-                int(remainder / nChannels), nChannels
-            )
+            # d = np.fromfile(f, dtype=precision, count=remainder).reshape(
+            # int(remainder / nChannels), nChannels
+            # )
+            d = fread(f, nChannels, channels, remainder, precision, skip)
             m, n = d.shape
             if m != 0:
                 data[i : i + m, :] = d
