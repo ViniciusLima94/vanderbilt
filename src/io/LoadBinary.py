@@ -1,4 +1,4 @@
-import os
+import logging
 import numpy as np
 import xarray as xr
 from .errors import error_msg
@@ -16,6 +16,7 @@ def perpl_LoadBinary(
     precision: type = np.int16,
     downsample: int = None,
     bitVolts: float = 0.195,
+    verbose: bool = False
 ) -> xr.DataArray:
     """
     Load data binaries and apply the appropriate parameters.
@@ -81,6 +82,16 @@ def perpl_LoadBinary(
     if any(channels > nChannels):
         raise ValueError(error_msg["ChannelIDException"])
 
+    if verbose:
+        logging.getLogger().setLevel(logging.INFO)
+        logging.info(f"Loading binaries from {filename} with:\n"
+                     f"fsample = {frequency}, start = {start}, "
+                     f"duration = {duration}, offset = {offset}, "
+                     f"nSamplesPerChannel = {nSamplesPerChannel}, "
+                     f"nChannels = {nChannels}, "
+                     f"precision = {precision}, downsample = {downsample}, "
+                     f"bitVolts = {bitVolts}.")
+
     ##########################################################################
     # Loading Files
     ##########################################################################
@@ -92,7 +103,7 @@ def perpl_LoadBinary(
 
     # Position and number of samples (per channel) of the data subset
     if time:
-        dataOffset = np.floor(start * frequency) * nChannels * sampleSize
+        dataOffset = int(np.floor(start * frequency)) * nChannels * sampleSize
         nSamplesPerChannel = np.round(duration * frequency)
     else:
         dataOffset = offset * nChannels * sampleSize
@@ -112,7 +123,7 @@ def perpl_LoadBinary(
     f.seek(dataOffset, 0)
 
     if ((not time) and (not samples)) or (nSamplesPerChannel > maxNSamplesPerChannel):
-        nSamplesPerChannel = maxNSamplesPerChannel
+        nSamplesPerChannel = int(maxNSamplesPerChannel)
 
     if isinstance(downsample, int):
         nSamplesPerChannel = int(np.floor(nSamplesPerChannel / downsample))
