@@ -95,14 +95,14 @@ def perpl_LoadBinary(
             f"bitVolts = {bitVolts}."
         )
 
+    # Size of one data point (in bytes)
+    sampleSize = precision(0).nbytes
+
     ##########################################################################
     # Loading Files
     ##########################################################################
     # Open file
     f = open(filename, mode="rb")
-
-    # Size of one data point (in bytes)
-    sampleSize = precision(0).nbytes
 
     # Position and number of samples (per channel) of the data subset
     if time:
