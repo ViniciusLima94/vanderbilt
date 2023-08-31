@@ -5,7 +5,7 @@ from .errors import error_msg
 from .io_utils import fread
 
 
-def perpl_LoadBinary(
+def LoadBinary(
     filename: str,
     frequency: int = 30000,
     start: float = 0,
@@ -26,7 +26,7 @@ def perpl_LoadBinary(
     ----------
     filename: str
         Name of the file to be read.
-    frequency: int | 20 kHz
+    frequency: int | 30 kHz
         Sampling rate in Hertz.
     start: float | 0
         Position to start reading in seconds.

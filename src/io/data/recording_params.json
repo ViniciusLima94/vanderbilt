@@ -1,0 +1,14 @@
+{
+  "comments": {
+    "frequency": "Sampling frequency in Hertz.",
+    "nChannels": "Number of channels in the signal.",
+    "precision": "Bit precision of the signal samples.",
+    "bitVolts": "Conversion factor to convert signal values from bits to volts."
+  },
+  "data": {
+    "frequency": 30000,
+    "nChannels": 64,
+    "precision": "np.int16",
+    "bitVolts": 0.195
+  }
+}
