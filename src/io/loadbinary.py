@@ -1,13 +1,41 @@
 import logging
 import numpy as np
 import xarray as xr
+from tqdm import tqdm
 from .errors import error_msg
 from .io_utils import fread
 
 
 def _load_batches(f, nChannels: int, nSamples: int, nSamplesPerChannel:int,
-                 channels: list, precision: type, skip: int,
-                 maxSamplesPerBatch: int = 1000):
+                  channels: list, precision: type, skip: int,
+                  maxSamplesPerBatch: int = 1000, verbose: bool = False):
+    """
+    Load and process data in batches from a file.
+
+    Parameters
+    ----------
+    f : file
+        The file object to read data from.
+    nChannels : int
+        Number of channels in the data.
+    nSamples : int
+        Total number of samples in the data.
+    nSamplesPerChannel : int
+        Samples per channel.
+    channels : list
+        Channel indices to read from.
+    precision : type
+        Data type precision for reading.
+    skip : int
+        Samples to skip after each read.
+    maxSamplesPerBatch : int | 1000
+        Max samples per batch.
+
+    Returns
+    -------
+    data : ndarray
+        A numpy array containing the processed data.
+    """
     # Determine chunk duration and number of chunks
     nSamplesPerBatch = int(np.floor(maxSamplesPerBatch / nChannels)) * nChannels
     nBatchs = int(np.floor(nSamples / nSamplesPerBatch))
@@ -15,13 +43,15 @@ def _load_batches(f, nChannels: int, nSamples: int, nSamplesPerChannel:int,
     data = np.zeros((nSamplesPerChannel, len(channels)))
     # Read all chunks
     i = 0
-    for _ in range(nBatchs):
+    __iter = tqdm(range(nBatchs)) if verbose else range(nBatchs)
+    for batch in __iter:
         d = fread(f, nChannels, channels, nSamplesPerBatch, precision, skip)
         m, n = d.shape
         if m == 0:
             break
         data[i : i + m, :] = d
         i = i + m
+        __iter.set_description(f"Loading batches: {batch}/{nBatchs}")
     # If the data size is not a multiple of the chunk size, read the remainder
     remainder = nSamples - nBatchs * nSamplesPerBatch
     if remainder != 0:
@@ -172,7 +202,8 @@ def LoadBinary(
         data = fread(f, nChannels, channels, nSamples, precision, skip)
     else:
         data = _load_batches(f, nChannels, nSamples, nSamplesPerChannel,
-                            channels, precision, skip, maxSamplesPerBatch)
+                             channels, precision, skip, maxSamplesPerBatch,
+                             verbose)
 
     # Convert to volts if necessary
     if bitVolts > 0:
