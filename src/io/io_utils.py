@@ -28,7 +28,7 @@ def fread(f, nChannels, channels, nSamples, precision, skip):
         Extracted data matrix, where rows correspond to samples and columns correspond to channels.
     """
     n = int(nSamples / nChannels)
-    if skip == 0:
+    if not isinstance(skip, int):
         data = np.fromfile(f, dtype=precision, count=nSamples).reshape(n, nChannels)
     else:
         data = []
