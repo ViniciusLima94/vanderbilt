@@ -5,6 +5,34 @@ from .errors import error_msg
 from .io_utils import fread
 
 
+def _load_batches(f, nChannels: int, nSamples: int, nSamplesPerChannel:int,
+                 channels: list, precision: type, skip: int,
+                 maxSamplesPerBatch: int = 1000):
+    # Determine chunk duration and number of chunks
+    nSamplesPerBatch = int(np.floor(maxSamplesPerBatch / nChannels)) * nChannels
+    nBatchs = int(np.floor(nSamples / nSamplesPerBatch))
+    # Allocate memory
+    data = np.zeros((nSamplesPerChannel, len(channels)))
+    # Read all chunks
+    i = 0
+    for _ in range(nBatchs):
+        d = fread(f, nChannels, channels, nSamplesPerBatch, precision, skip)
+        m, n = d.shape
+        if m == 0:
+            break
+        data[i : i + m, :] = d
+        i = i + m
+    # If the data size is not a multiple of the chunk size, read the remainder
+    remainder = nSamples - nBatchs * nSamplesPerBatch
+    if remainder != 0:
+        d = fread(f, nChannels, channels, remainder, precision, skip)
+        m, n = d.shape
+        if m != 0:
+            data[i : i + m, :] = d
+
+    return data
+
+
 def LoadBinary(
     filename: str,
     frequency: int = 30000,
@@ -135,35 +163,16 @@ def LoadBinary(
     else:
         skip = None
 
-    # For large amounts of data, read chunk by chunk
-    maxSamplesPerChunk = 10000
+    # For large amounts of data, read in batches 
     nSamples = nSamplesPerChannel * nChannels
 
+    maxSamplesPerBatch = 10000
     # Wheter it will be converter to volts
-    if nSamples <= maxSamplesPerChunk:
+    if nSamples <= maxSamplesPerBatch:
         data = fread(f, nChannels, channels, nSamples, precision, skip)
     else:
-        # Determine chunk duration and number of chunks
-        nSamplesPerChunk = int(np.floor(maxSamplesPerChunk / nChannels)) * nChannels
-        nChunks = int(np.floor(nSamples / nSamplesPerChunk))
-        # Allocate memory
-        data = np.zeros((nSamplesPerChannel, len(channels)))
-        # Read all chunks
-        i = 0
-        for _ in range(nChunks):
-            d = fread(f, nChannels, channels, nSamplesPerChunk, precision, skip)
-            m, n = d.shape
-            if m == 0:
-                break
-            data[i : i + m, :] = d
-            i = i + m
-        # If the data size is not a multiple of the chunk size, read the remainder
-        remainder = nSamples - nChunks * nSamplesPerChunk
-        if remainder != 0:
-            d = fread(f, nChannels, channels, remainder, precision, skip)
-            m, n = d.shape
-            if m != 0:
-                data[i : i + m, :] = d
+        data = _load_batches(f, nChannels, nSamples, nSamplesPerChannel,
+                            channels, precision, skip, maxSamplesPerBatch)
 
     # Convert to volts if necessary
     if bitVolts > 0:
@@ -173,6 +182,5 @@ def LoadBinary(
 
     data = xr.DataArray(data, dims=("times", "channels"),
                         coords={"channels": channels})
-
 
     return data
