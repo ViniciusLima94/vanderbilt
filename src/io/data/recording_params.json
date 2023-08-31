@@ -5,7 +5,7 @@
     "precision": "Bit precision of the signal samples.",
     "bitVolts": "Conversion factor to convert signal values from bits to volts."
   },
-  "data": {
+  "info": {
     "frequency": 30000,
     "nChannels": 64,
     "precision": "np.int16",

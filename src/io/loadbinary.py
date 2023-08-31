@@ -132,6 +132,8 @@ def LoadBinary(
     if isinstance(downsample, int):
         skip = int(nChannels * (downsample - 1) * sampleSize)
         nSamplesPerChannel = int(np.floor(nSamplesPerChannel / downsample))
+    else:
+        skip = None
 
     # For large amounts of data, read chunk by chunk
     maxSamplesPerChunk = 10000
@@ -170,6 +172,7 @@ def LoadBinary(
     f.close()
 
     data = xr.DataArray(data, dims=("times", "channels"),
-                        coords=dict(channels=channels))
+                        coords={"channels": channels})
+
 
     return data
