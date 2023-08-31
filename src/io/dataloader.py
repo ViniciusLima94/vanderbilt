@@ -1,6 +1,7 @@
 import os
 import json
 import numpy as np
+import xarray as xr
 from .loadbinary import LoadBinary
 
 
@@ -9,10 +10,10 @@ class DataLoader:
     Class to load data and preprocess it.
     """
 
-    def __init__(self,):
-        pass
+    def __init__(self, filename: str):
+        self.filename = filename
 
-    def loadbinary(self, filename: str, start: float = 0,
+    def loadbinary(self, start: float = 0,
                    duration: float = None, offset: int = 0,
                    nSamplesPerChannel: int = None, channels: list = None,
                    downsample: int = None, verbose=False
@@ -27,12 +28,24 @@ class DataLoader:
         rec_params["precision"] = eval(rec_params["precision"])
 
         # Load data from binaries
-        data = LoadBinary(filename, start=start, duration=duration,
+        self.data = LoadBinary(self.filename, start=start, duration=duration,
                           offset=offset, nSamplesPerChannel=nSamplesPerChannel,
                           channels=channels, downsample=downsample,
                           verbose=verbose, **rec_params)
+        
+        if isinstance(downsample, int):
+            self.fsample = int(rec_params["frequency"] / downsample)
 
-        return data
 
-    def filter(self,):
-        pass
+    def filter(self, l_freq: float, h_freq: float, kw_filter: dict = {}):
+        from mne.filter import filter_data
+        print(hasattr(self, 'data'))
+
+        assert hasattr(self, 'data'), "Raw data not loaded (call loadbinary method)."
+
+        dims, coords = self.data.dims, self.data.coords
+
+        self.data = filter_data(self.data.data.T, self.fsample,
+                                l_freq, h_freq).T
+
+        self.data = xr.DataArray(self.data, dims=dims, coords=coords)
