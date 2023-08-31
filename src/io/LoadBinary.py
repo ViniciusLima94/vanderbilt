@@ -149,9 +149,6 @@ def perpl_LoadBinary(
         # Read all chunks
         i = 0
         for _ in range(nChunks):
-            # d = np.fromfile(f, dtype=precision, count=nSamplesPerChunk).reshape(
-            # int(nSamplesPerChunk / nChannels), nChannels
-            # )
             d = fread(f, nChannels, channels, nSamplesPerChunk, precision, skip)
             m, n = d.shape
             if m == 0:
@@ -161,9 +158,6 @@ def perpl_LoadBinary(
         # If the data size is not a multiple of the chunk size, read the remainder
         remainder = nSamples - nChunks * nSamplesPerChunk
         if remainder != 0:
-            # d = np.fromfile(f, dtype=precision, count=remainder).reshape(
-            # int(remainder / nChannels), nChannels
-            # )
             d = fread(f, nChannels, channels, remainder, precision, skip)
             m, n = d.shape
             if m != 0:
@@ -174,5 +168,8 @@ def perpl_LoadBinary(
         data = data * bitVolts
     # Close file
     f.close()
+
+    data = xr.DataArray(data, dims=("times", "channels"),
+                        coords=dict(channels=channels))
 
     return data
