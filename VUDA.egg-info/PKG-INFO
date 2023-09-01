@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: VUDA
+Version: 0.0.6
+Summary: Package to help analysing the Vanderbilt dataset.
+Author: ViniciusLima
+Author-email: <vinicius.lima.cordeiro@gmail.com>
+Keywords: python,analysis of the Vanderbilt dataset.
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Education
+Classifier: Programming Language :: Python :: 3
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Developers

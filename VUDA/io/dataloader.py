@@ -10,19 +10,20 @@ class DataLoader:
     Class to load data and preprocess it.
     """
 
-    def __init__(self, filename: str):
+    def __init__(self, filename: str, rec_info: str):
+        # Data File
         self.filename = filename
+        # Recording info file
+        self.rec_info = rec_info
 
     def loadbinary(self, start: float = 0,
                    duration: float = None, offset: int = 0,
                    nSamplesPerChannel: int = None, channels: list = None,
                    downsample: int = None, verbose=False
                    ):
-        dirname = os.path.dirname(__file__)
-        json_path = os.path.join(dirname, "data", "recording_params.json")
 
         # Load recording info
-        with open(json_path, 'r') as file:
+        with open(self.rec_info, 'r') as file:
             rec_params = json.load(file)["info"]
         # Evalueate precision
         rec_params["precision"] = eval(rec_params["precision"])
