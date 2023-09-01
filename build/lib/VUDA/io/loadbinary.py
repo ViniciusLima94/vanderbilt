@@ -51,7 +51,8 @@ def _load_batches(f, nChannels: int, nSamples: int, nSamplesPerChannel:int,
             break
         data[i : i + m, :] = d
         i = i + m
-        __iter.set_description(f"Loading batches: {batch}/{nBatchs}")
+        if verbose:
+            __iter.set_description(f"Loading batches: {batch}/{nBatchs}")
     # If the data size is not a multiple of the chunk size, read the remainder
     remainder = nSamples - nBatchs * nSamplesPerBatch
     if remainder != 0:
