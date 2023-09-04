@@ -6,9 +6,17 @@ from .errors import error_msg
 from .io_utils import fread
 
 
-def _load_batches(f, nChannels: int, nSamples: int, nSamplesPerChannel:int,
-                  channels: list, precision: type, skip: int,
-                  maxSamplesPerBatch: int = 1000, verbose: bool = False):
+def _load_batches(
+    f,
+    nChannels: int,
+    nSamples: int,
+    nSamplesPerChannel: int,
+    channels: list,
+    precision: type,
+    skip: int,
+    maxSamplesPerBatch: int = 1000,
+    verbose: bool = False,
+):
     """
     Load and process data in batches from a file.
 
@@ -45,14 +53,13 @@ def _load_batches(f, nChannels: int, nSamples: int, nSamplesPerChannel:int,
     i = 0
     __iter = tqdm(range(nBatchs)) if verbose else range(nBatchs)
     for batch in __iter:
+        if verbose: __iter.set_description(f"Loading batches: {batch}/{nBatchs}")
         d = fread(f, nChannels, channels, nSamplesPerBatch, precision, skip)
         m, n = d.shape
         if m == 0:
             break
         data[i : i + m, :] = d
         i = i + m
-        if verbose:
-            __iter.set_description(f"Loading batches: {batch}/{nBatchs}")
     # If the data size is not a multiple of the chunk size, read the remainder
     remainder = nSamples - nBatchs * nSamplesPerBatch
     if remainder != 0:
@@ -194,7 +201,7 @@ def LoadBinary(
     else:
         skip = None
 
-    # For large amounts of data, read in batches 
+    # For large amounts of data, read in batches
     nSamples = nSamplesPerChannel * nChannels
 
     maxSamplesPerBatch = 10000
@@ -202,9 +209,17 @@ def LoadBinary(
     if nSamples <= maxSamplesPerBatch:
         data = fread(f, nChannels, channels, nSamples, precision, skip)
     else:
-        data = _load_batches(f, nChannels, nSamples, nSamplesPerChannel,
-                             channels, precision, skip, maxSamplesPerBatch,
-                             verbose)
+        data = _load_batches(
+            f,
+            nChannels,
+            nSamples,
+            nSamplesPerChannel,
+            channels,
+            precision,
+            skip,
+            maxSamplesPerBatch,
+            verbose,
+        )
 
     # Convert to volts if necessary
     if bitVolts > 0:
@@ -212,7 +227,6 @@ def LoadBinary(
     # Close file
     f.close()
 
-    data = xr.DataArray(data, dims=("times", "channels"),
-                        coords={"channels": channels})
+    data = xr.DataArray(data, dims=("times", "channels"), coords={"channels": channels})
 
     return data

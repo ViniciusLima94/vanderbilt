@@ -3,18 +3,24 @@ import json
 import numpy as np
 import xarray as xr
 from .loadbinary import LoadBinary
+from dataclasses import dataclass, field
 
 
+@dataclass(order=True)
 class DataLoader:
     """
     Class to load data and preprocess it.
     """
+    filename: str
+    rec_info: str
+    data: xr.DataArray = field(init=False, repr=True)
+    fsample: int = field(init=False, repr=False)
 
-    def __init__(self, filename: str, rec_info: str):
-        # Data File
-        self.filename = filename
-        # Recording info file
-        self.rec_info = rec_info
+    # def __init__(self, filename: str, rec_info: str):
+        # # Data File
+        # self.filename = filename
+        # # Recording info file
+        # self.rec_info = rec_info
 
     def loadbinary(self, start: float = 0,
                    duration: float = None, offset: int = 0,
@@ -40,7 +46,6 @@ class DataLoader:
 
     def filter(self, l_freq: float, h_freq: float, kw_filter: dict = {}):
         from mne.filter import filter_data
-        print(hasattr(self, 'data'))
 
         assert hasattr(self, 'data'), "Raw data not loaded (call loadbinary method)."
 
@@ -50,3 +55,11 @@ class DataLoader:
                                 l_freq, h_freq).T
 
         self.data = xr.DataArray(self.data, dims=dims, coords=coords)
+
+
+    # def __str__(self):
+        # if hasattr(self, 'data'):
+            # print(self.data)
+        # else:
+            # print('')
+
