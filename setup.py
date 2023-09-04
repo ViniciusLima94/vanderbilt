@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = "0.0.8"
+VERSION = "0.0.12"
 DESCRIPTION = "Package to help analysing the Vanderbilt dataset."
 
 # Setting up

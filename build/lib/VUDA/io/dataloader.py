@@ -11,10 +11,10 @@ class DataLoader:
     """
     Class to load data and preprocess it.
     """
-    filename: str
-    rec_info: str
+    filename: str = field(repr=False, compare=False)
+    rec_info: str = field(repr=False, compare=False)
     data: xr.DataArray = field(init=False, repr=True)
-    fsample: int = field(init=False, repr=False)
+    fsample: int = field(init=False, repr=False, compare=False)
 
     # def __init__(self, filename: str, rec_info: str):
         # # Data File
@@ -57,9 +57,7 @@ class DataLoader:
         self.data = xr.DataArray(self.data, dims=dims, coords=coords)
 
 
-    # def __str__(self):
-        # if hasattr(self, 'data'):
-            # print(self.data)
-        # else:
-            # print('')
-
+    def __str__(self):
+        if hasattr(self, 'data'):
+            return f'data = {self.data}'
+        return ''
