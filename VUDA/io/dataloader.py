@@ -66,7 +66,7 @@ class DataLoader:
                           offset=offset, nSamplesPerChannel=nSamplesPerChannel,
                           channels=channels, downsample=downsample,
                           verbose=verbose, **rec_params)
-        
+
         if isinstance(downsample, int):
             self.fsample = int(rec_params["frequency"] / downsample)
 
@@ -86,7 +86,7 @@ class DataLoader:
         """
         from mne.filter import filter_data
 
-        assert hasattr(self, 'data'), "Raw data not loaded (call loadbinary method)."
+        assert hasattr(self, 'data'), "Raw data not loaded (call loadbinary)."
 
         dims, coords = self.data.dims, self.data.coords
 
