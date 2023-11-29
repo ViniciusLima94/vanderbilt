@@ -83,6 +83,8 @@ def LoadBinary(
     precision: type = np.int16,
     downsample: int = None,
     bitVolts: float = 0.195,
+    timestamps: list = None,
+    attrs: dict = None,
     verbose: bool = False,
 ) -> xr.DataArray:
     """
@@ -228,5 +230,12 @@ def LoadBinary(
     f.close()
 
     data = xr.DataArray(data, dims=("times", "channels"), coords={"channels": channels})
+
+    if isinstance(timestamps, (list, tuple, np.ndarray)):
+        timestamps = timestamps[::downsample][:data.sizes["times"]]
+        data = data.assign_coords({"times": timestamps})
+
+    if isinstance(attrs, dict):
+        data.attrs = attrs
 
     return data
