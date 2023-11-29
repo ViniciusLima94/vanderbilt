@@ -32,7 +32,7 @@ class DataLoader:
     def loadbinary(self, start: float = 0,
                    duration: float = None, offset: int = 0,
                    nSamplesPerChannel: int = None, channels: list = None,
-                   downsample: int = None, verbose=False
+                   downsample: int = None, timestamps = None, verbose=False
                    ):
         """
         Load data from binary files.
