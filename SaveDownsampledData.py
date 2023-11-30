@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 from frites.utils import parallel_func
-from config import metadata, fsample, decim
+from config import metadata, fsample, decim, _sel_attrs
 from VUDA.io.loadbinary import LoadBinary
 
 ##############################################################################
@@ -36,8 +36,21 @@ tspath = os.path.join(ROOT, "timestamps.mat")
 # Load info sheet
 info = pd.read_excel(metadata["rec_info"])
 
+##############################################################################
+# Select and filter metadata attributes
+##############################################################################
 attrs = info.loc[np.logical_and(info.Date == session, info.Animal_ID == monkey)]
+attrs_dict = attrs.to_dict()
+values = []
+for _sel_attr in _sel_attrs:
+    for key in attrs_dict[_sel_attr].keys():
+        values += [attrs_dict[_sel_attr][key]]
+attrs_dict = dict(zip(_sel_attrs, values))
+
+# Total number of channels
 n_channels = attrs["Num_chan"].values[0]
+# Number of channels to load
+n_channels_to_load = metadata["monkey"][monkey]["n_channels_to_load"] = 40
 timestamps = np.asarray(h5py.File(tspath).get("timestamps")).squeeze()
 
 
@@ -59,10 +72,10 @@ def _load_channel(n):
 
 # define the function to compute in parallel
 parallel, p_fun = parallel_func(
-    _load_channel, n_jobs=20, verbose=True, total=n_channels
+    _load_channel, n_jobs=20, verbose=True, total=n_channels_to_load
 )
 # Compute the single trial coherence
-data = parallel(p_fun(n) for n in range(n_channels))
+data = parallel(p_fun(n) for n in range(n_channels_to_load))
 
 data = xr.concat(data, "channels")
 

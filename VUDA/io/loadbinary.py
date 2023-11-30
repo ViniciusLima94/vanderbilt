@@ -53,7 +53,8 @@ def _load_batches(
     i = 0
     __iter = tqdm(range(nBatchs)) if verbose else range(nBatchs)
     for batch in __iter:
-        if verbose: __iter.set_description(f"Loading batches: {batch}/{nBatchs}")
+        if verbose:
+            __iter.set_description(f"Loading batches: {batch}/{nBatchs}")
         d = fread(f, nChannels, channels, nSamplesPerBatch, precision, skip)
         m, n = d.shape
         if m == 0:
@@ -229,10 +230,12 @@ def LoadBinary(
     # Close file
     f.close()
 
-    data = xr.DataArray(data, dims=("times", "channels"), coords={"channels": channels})
+    data = xr.DataArray(
+        data, dims=("times", "channels"), coords={"channels": channels + 1}
+    )
 
     if isinstance(timestamps, (list, tuple, np.ndarray)):
-        timestamps = timestamps[::downsample][:data.sizes["times"]]
+        timestamps = timestamps[::downsample][: data.sizes["times"]]
         data = data.assign_coords({"times": timestamps})
 
     if isinstance(attrs, dict):

@@ -8,6 +8,8 @@ metadata["rec_info"] = r"/home/vinicius/funcog/Neural Data/Data_Processed.xlsx"
 metadata["monkey"] = {"FN": {}, "WI": {}}
 metadata["monkey"]["FN"]["n_channels"] = 64
 metadata["monkey"]["WI"]["n_channels"] = 128
+metadata["monkey"]["FN"]["n_channels_to_load"] = 40
+metadata["monkey"]["WI"]["n_channels"] = 128
 
 metadata["monkey"]["FN"]["dates"] = [
     "10-13-2022",
@@ -39,4 +41,21 @@ metadata["monkey"]["WI"]["dates"] = [
     "2021-09-29",
     "2021-10-01",
     "2021-10-07",
+]
+
+# Attributes in the metadata spreadsheet to be kept
+_sel_attrs = [
+    "TH_end",
+    "Sleep_start",
+    "Sleep_errors",
+    "Bad Channels",
+    "Spindle_Chan",
+    "Ripple_Chan_TH",
+    "Ripple_Chan_Sleep",
+    "Reversal_Chan",
+    "Pos_Pol_Chan",
+    "Noise_Chan",
+    "Ripple_detected",
+    "Spindle_detected",
+    "SO_detected",
 ]
