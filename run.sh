@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #SBATCH -J proc              # Job name
 #SBATCH -o .out/job_%a.out   # Name of stdout output file (%j expands to %jobID)
 #SBATCH --ntasks=1

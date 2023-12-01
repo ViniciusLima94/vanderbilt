@@ -65,7 +65,7 @@ def _load_channel(n):
         nChannels=n_channels,
         precision=np.int16,
         timestamps=timestamps,
-        attrs=attrs.to_dict(),
+        attrs=attrs_dict,
         verbose=False,
     )
 
@@ -83,9 +83,10 @@ data = xr.concat(data, "channels")
 # Save annotated dataset
 ##############################################################################
 
-SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}/aHPC_B_cnct.nc")
+SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}")
+FILE_NAME = "aHPC_B_cnct.nc"
 
 if not os.path.exists(SAVE_TO):
     os.makedirs(SAVE_TO)
 
-data.to_netcdf(SAVE_TO)
+data.to_netcdf(os.path.join(SAVE_TO, FILE_NAME))
