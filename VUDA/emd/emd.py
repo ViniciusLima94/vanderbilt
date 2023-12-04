@@ -87,6 +87,8 @@ def emd_vec(
     Perform Empirical Mode Decomposition (EMD) or
     Ensemble Empirical Mode Decomposition (EEMD) on a vector.
 
+    Base code by: @e.combrisson
+
     Parameters:
     - x: Input vector for EMD.
     - method (str): EMD method, either "emd" for standard EMD or "eemd" for Ensemble EMD.
