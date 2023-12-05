@@ -12,3 +12,8 @@ if [[ $1 == "savedata" ]]
 then
     python -O SaveDownsampledData.py $2 $SLURM_ARRAY_TASK_ID
 fi
+
+if [[ $1 == "saveimfs" ]]
+then
+    python -O SaveIMFs.py $2 $SLURM_ARRAY_TASK_ID "task"
+fi
