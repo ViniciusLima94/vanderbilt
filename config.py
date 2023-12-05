@@ -66,5 +66,8 @@ _sel_attrs = [
 ##############################################################################
 # Parameters for the EMD
 ##############################################################################
-method = "EMD"
-max_imfs = None
+method = "eemd"
+max_imfs = 9
+nensembles = 5
+imf_opts = {"stop_method": "fixed", "max_iters": 5}
+block_size = 500

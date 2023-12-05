@@ -1,6 +1,7 @@
 from functools import partial
 import numpy as np
 
+
 def get_extreme_size(x, f_max_min=None):
     """
     Get the maximum or minimum size among the input list of arrays.
@@ -15,8 +16,10 @@ def get_extreme_size(x, f_max_min=None):
     """
     return f_max_min([x_.shape[0] for x_ in x])
 
+
 get_min_size = partial(get_extreme_size, f_max_min=np.min)
 get_max_size = partial(get_extreme_size, f_max_min=np.max)
+
 
 def get_data_blocks(n_samples, n_blocks, use_min_block_size):
     """

@@ -1,10 +1,12 @@
 import numpy as np
+import xarray as xr
 import logging
 from functools import partial
 from frites.utils import parallel_func
 import PyEMD
 import emd
 from .emd_utils import get_data_blocks
+
 
 def emd_pyEMD(
     data: np.ndarray,
@@ -74,6 +76,7 @@ def emd_pyEMD(
 
 def emd_vec(
     x,
+    times,
     method="emd",
     max_imfs=None,
     nensembles=None,
@@ -91,6 +94,7 @@ def emd_vec(
 
     Parameters:
     - x: Input vector for EMD.
+    - times: Time array of the time-series in the vector x.
     - method (str): EMD method, either "emd" for standard EMD or "eemd" for Ensemble EMD.
     - max_imfs (int): Maximum number of Intrinsic Mode Functions (IMFs) to extract.
     - nensembles (int): Number of ensembles for EEMD. Set to 1 for standard EMD.
@@ -117,34 +121,35 @@ def emd_vec(
 
     if isinstance(block_size, int) and (block_size > 1):
         blocks = get_data_blocks(n_samples, block_size, use_min_block_size)
+        block_times = np.vstack(
+            [(times[block].min(), times[block].max()) for block in blocks]
+        )
     else:
         blocks = [np.arange(n_samples)]
 
     nblocks = len(blocks)
 
     if method == "emd":
-        f_emd = partial(
-            f_emd[method],
-            **f_emd_args
-        )
+        f_emd = partial(f_emd[method], **f_emd_args)
     else:
-        f_emd = partial(
-            f_emd[method],
-            nensembles=nensembles,
-            **f_emd_args
-        )
+        f_emd = partial(f_emd[method], nensembles=nensembles, **f_emd_args)
 
     def _for_block(block):
         """Perform EMD on a vector."""
-        # Extract single trial IMF
-        imf = f_emd(x[block])
-        return imf.T
+        # extract single trial imf
+        imf = f_emd(x[block]).T
+        imf = xr.DataArray(imf, dims=("IMFs", "times"),)
+        return imf
 
-    # Define the function to compute in parallel
+    # define the function to compute in parallel
     parallel, p_fun = parallel_func(
         _for_block, verbose=verbose, n_jobs=n_jobs, total=nblocks
     )
 
     out = parallel(p_fun(block) for block in blocks)
+
+    out = xr.concat( out, "blocks")
+
+    out.attrs["block_times"] = block_times
 
     return out

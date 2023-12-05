@@ -28,6 +28,7 @@ session = metadata["monkey"]["FN"]["dates"][sid]
 
 # Root path for data
 ROOT = os.path.expanduser(f"~/funcog/Neural Data/{monkey} - LaDy/{session}")
+SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}")
 # Path for file
 filepath = os.path.join(ROOT, "aHPC_B_cnct.dat")
 # Path for timestamps
