@@ -17,7 +17,7 @@ def emd_pyEMD(
     verbose: bool = False,
     seed: int = 0,
     use_min_block_size: bool = False,
-    method="emd",
+    method: str="emd",
 ):
     """
     Perform Empirical Mode Decomposition (EMD) or Ensemble Empirical Mode Decomposition (EEMD) on the input data.
@@ -83,6 +83,7 @@ def emd_vec(
     block_size=None,
     verbose=False,
     use_min_block_size=False,
+    remove_fastest_imf=False,
     imf_opts={},
     n_jobs=1,
 ):
@@ -101,13 +102,13 @@ def emd_vec(
     - block_size: Size of data blocks for parallel processing. If None, the entire data is processed as a single block.
     - verbose (bool): If True, print progress information.
     - use_min_block_size (bool): If True, use the minimum block size for parallel processing.
+    - remove_fastest_imf (bool): If True, remove the first IMF extracted in each block.
     - imf_opts (dict): Additional options for IMF extraction.
     - n_jobs (int): Number of parallel jobs.
 
     Returns:
     - out: List of IMFs for each vector block.
     """
-
     assert method in ["emd", "eemd"]
 
     f_emd = dict(emd=emd.sift.sift, eemd=emd.sift.ensemble_sift)
@@ -138,7 +139,8 @@ def emd_vec(
         """Perform EMD on a vector."""
         # extract single trial imf
         imf = f_emd(x[block]).T
-        imf = xr.DataArray(imf, dims=("IMFs", "times"),)
+        if remove_fastest_imf:
+            imf = imf[1:]
         return imf
 
     # define the function to compute in parallel
@@ -148,8 +150,26 @@ def emd_vec(
 
     out = parallel(p_fun(block) for block in blocks)
 
-    out = xr.concat( out, "blocks")
+    imfs = []
+    n_imfs_per_block = []
 
-    out.attrs["block_times"] = block_times
+    for out_ in out:
+        n_imfs_per_block += [len(out_)]
+        imfs_coords = n_imfs_per_block[-1] - np.arange(
+            0, n_imfs_per_block[-1], dtype=np.int8
+        )
+        imfs += [
+            xr.DataArray(
+                out_,
+                dims=("IMFs", "times"),
+                coords={"IMFs": imfs_coords},
+            )
+        ]
 
-    return out
+    imfs = xr.concat(imfs, "blocks")
+
+    imfs.attrs["block_times_start"] = block_times[:, 0]
+    imfs.attrs["block_times_end"] = block_times[:, 1]
+    imfs.attrs["n_imfs_per_block"] = np.stack(n_imfs_per_block)
+
+    return imfs

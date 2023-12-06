@@ -1,13 +1,9 @@
 import os
 import argparse
-import logging
-from functools import partial
 import numpy as np
 import xarray as xr
-from mne.time_frequency import psd_array_multitaper
-from sklearn.cluster import DBSCAN
+from tqdm import tqdm
 from VUDA.emd import emd_vec
-from VUDA.utils import sum_for_cluster, average_for_cluster
 from config import metadata, method, max_imfs, imf_opts, nensembles, block_size
 
 
@@ -17,7 +13,12 @@ from config import metadata, method, max_imfs, imf_opts, nensembles, block_size
 parser = argparse.ArgumentParser()
 parser.add_argument("MONKEY", help="which monkey to use", type=str)
 parser.add_argument("SESSION_ID", help="id of the session to be used", type=int)
-parser.add_argument("CONDITION", help="to select sleep or task condition", type=str, choices=["task", "sleep"])
+parser.add_argument(
+    "CONDITION",
+    help="to select sleep or task condition",
+    type=str,
+    choices=["task", "sleep"],
+)
 
 args = parser.parse_args()
 
@@ -26,6 +27,66 @@ sid = args.SESSION_ID
 condition = args.CONDITION
 
 session = metadata["monkey"]["FN"]["dates"][sid]
+
+
+##############################################################################
+# Helper functions
+##############################################################################
+def standardize_imf_per_block(IMFs):
+    """
+    Standardizes the number of intrinsic mode functions (IMFs) per block in an xarray Dataset.
+    It sums slower IMFs in case a given block has more IMFs, thant the block that has the least
+    number of IMFs.
+
+    Parameters:
+    - IMFs (xarray.Dataset): Input Dataset containing IMFs with dimensions ('blocks', 'IMFs', ...).
+
+    Returns:
+    - xarray.Dataset: Output Dataset with standardized IMFs per block.
+
+    The function standardizes the number of IMFs per block by either summing the first
+    (10 - n_imfs_min + 1) IMFs or keeping the original IMFs if the number is already less
+    than or equal to n_imfs_min.
+
+    Note:
+    - The function assumes that the input Dataset has dimensions ('blocks', 'IMFs', ...).
+    - The result is a new Dataset with standardized IMFs per block.
+    """
+
+    assert isinstance(IMFs, xr.DataArray)
+    np.testing.assert_array_equal(IMFs.dims, ("blocks", "IMFs", "times"))
+
+    n_imfs_min = IMFs.n_imfs_per_block.min()
+    IMFs_coords = np.arange(n_imfs_min, dtype=int)
+    attrs = IMFs.attrs
+
+    reduced = []
+
+    for i in range(IMFs.sizes["blocks"]):
+
+        temp = IMFs[i].dropna("IMFs").drop_vars("IMFs")
+        n_imfs = temp.shape[0]
+
+        if n_imfs > n_imfs_min:
+
+            reduced += [
+                xr.concat(
+                    (
+                        temp[0 : n_imfs - n_imfs_min + 1].sum("IMFs", keepdims=True),
+                        temp[n_imfs - n_imfs_min + 1 :],
+                    ),
+                    "IMFs",
+                )
+            ]
+
+        else:
+            reduced += [temp]
+
+    IMFs = xr.concat(reduced, "blocks").assign_coords({"IMFs": IMFs_coords})
+    IMFs.attrs = attrs
+
+    return IMFs
+
 
 ##############################################################################
 # Load data
@@ -56,6 +117,8 @@ else:
 times = data.times.values
 # Channels array
 channels = data.channels.values
+# Nulber of samples and channels
+n_times, n_channels = len(times), len(channels)
 # Get data attrs
 attrs = data.attrs
 
@@ -64,18 +127,17 @@ attrs = data.attrs
 # Extract IMFs
 ##############################################################################
 
-# For DBSCAN clustering
-clustering = DBSCAN(eps=0.03, min_samples=20)
-
-
 IMFs = []
-COMPOSITE = []
-SPECTRA = []
 
-for channel in data.channels.data:
+__iter = tqdm(channels)
+
+for channel in __iter:
+
+    __iter.set_description(
+        f"Decomposing signal from channel {channel} into IMFs."
+    )
 
     # Get IMFs
-    logging.info(f"Decomposing the signal in IMFs for channel {channel + 1}.")
     imf = emd_vec(
         data.sel(channels=channel).values,
         times,
@@ -84,17 +146,16 @@ for channel in data.channels.data:
         block_size=block_size,
         nensembles=nensembles,
         use_min_block_size=True,
+        remove_fastest_imf=True,
         n_jobs=20,
         imf_opts=imf_opts,
+        verbose=False
     )
-
-    # Remove ultra fast IMF
-    imf = imf[:, 1:, :]
-
+    # Set same number of IMFs for all blocks
+    imf = standardize_imf_per_block(imf)
     IMFs += [imf]
 
-IMFs = xr.concat(IMFs, "channels")
-IMFs = IMFs.assign_coords({"channels": channels})
+IMFs = xr.Dataset({f"channel{i + 1}": IMFs[i] for i in range(n_channels)})
 
 for key in attrs.keys():
     IMFs.attrs[key] = attrs[key]
@@ -113,52 +174,3 @@ if not os.path.exists(SAVE_TO):
     os.makedirs(SAVE_TO)
 
 IMFs.to_netcdf(os.path.join(SAVE_TO, FILE_NAME))
-
-"""
-# Decompose IMFs
-SXX, f = psd_array_multitaper(
-    imf,
-    fmin=0,
-    fmax=300,
-    sfreq=1000,
-    verbose=False,
-    bandwidth=4,
-    n_jobs=20,
-)
-
-SXX = xr.DataArray(SXX, dims=("blocks", "IMF", "freqs"), coords={"freqs": f})
-
-SPECTRA += [SXX]
-
-SXX = SXX.stack(IMFs=("blocks", "IMF")).T.values
-# Normalize power spectrum
-SXX_norm = SXX / SXX.sum(1)[:, None]
-
-# Fit spectra and get cluster labels
-cluster_labels = clustering.fit_predict(SXX_norm)
-unique_labels = np.unique(clustering.labels_)
-n_clusters = len(unique_labels)
-logging.info(f"Found {n_clusters} clusters based on IMF's power.")
-
-# Get average spectra per cluster
-partial_average_for_cluster = partial(
-    average_for_cluster, data=SXX_norm, cluster_labels=cluster_labels
-)
-out = np.stack(
-    [partial_average_for_cluster(label=label) for label in unique_labels]
-)
-# Cluster labels per block
-cluster_labels = cluster_labels.reshape(-1, max_imfs - 1)
-
-# Sort cluster based on the peak of the mean spectra
-order = np.argsort(out.argmax(axis=1))
-
-COMPOSITE_TEMP = []
-for nb in range(block_size):
-    COMPOSITE_TEMP += [
-        np.stack(
-            [sum_for_cluster(imf[nb], cluster_labels[nb], label) for label in order]
-        )
-    ]
-COMPOSITE += [np.stack(COMPOSITE_TEMP)]
-"""
