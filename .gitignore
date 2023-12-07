@@ -1,3 +1,7 @@
 *.pyc
 .out/
 __pychache__
+*.png
+*.pdf
+*.eps
+*.svg
