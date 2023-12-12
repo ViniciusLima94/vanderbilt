@@ -3,9 +3,11 @@ import argparse
 from functools import partial
 import numpy as np
 import xarray as xr
+from frites.utils import parallel_func
 from mne.time_frequency import psd_array_multitaper
 from sklearn.metrics import pairwise_distances_argmin_min
 from sklearn.cluster import DBSCAN
+from sklearn.neighbors import NearestNeighbors
 from config import metadata, method, max_imfs
 
 
@@ -31,7 +33,6 @@ condition = args.CONDITION
 session = metadata["monkey"]["FN"]["dates"][sid]
 
 # DBSCAN Parameters
-eps = 200
 min_samples = 20
 
 
@@ -67,7 +68,7 @@ def reassign_noise_points(data, labels):
         closest_cluster_labels = labels[closest_cluster_indices]
 
         # Assign noise points to the closest cluster
-        labels[labels == -1] = np.argmax(np.bincount(closest_cluster_labels))
+        labels[labels == -1] = closest_cluster_labels
 
         return labels
     return labels
@@ -101,6 +102,36 @@ f_mt = partial(
     n_jobs=20,
 )
 
+
+def par_f_mt(signal, verbose=False, n_jobs=1):
+
+    # Get signal dimension
+    n_samples, n_times = signal.shape
+
+    parallel, p_fun = parallel_func(
+        f_mt, verbose=verbose, n_jobs=n_jobs, total=n_samples
+    )
+
+    out = parallel(p_fun(x) for x in signal)
+
+    # Unwrap output
+    f_vec = np.mean([out[i][1] for i in range(n_samples)], axis=0)
+    sxx = np.stack([out[i][0] for i in range(n_samples)])
+    print(f_vec.shape)
+
+    return sxx, f_vec
+
+
+def curvature(x):
+
+    div = np.gradient(x)
+    lap = np.gradient(x)
+
+    K = np.abs(lap) / ((1 + div**2) ** 1.5)
+
+    return K
+
+
 ##############################################################################
 # Load data
 ##############################################################################
@@ -129,8 +160,8 @@ for channel in channels:
     #################################################################
     # Get IMFs for channel
     #################################################################
-    IMFs_single = IMFs_dataset[channel].load()
-    IMFs = IMFs_single.stack(samples=("blocks", "IMFs")).T.dropna("samples")
+    IMFs_single = IMFs_dataset[channel].load().dropna("IMFs")
+    IMFs = IMFs_single.stack(samples=("blocks", "IMFs")).T.data
     attrs = IMFs_single.attrs
 
     #################################################################
@@ -139,24 +170,25 @@ for channel in channels:
     SXX, f_imf = f_mt(IMFs)
     SXX_norm = SXX / SXX.mean(1)[:, None]
 
+    #################################################################
+    # Cluster IMFs based on their spectra
+    #################################################################
+    # Estimate the best eps as 4 * elbow point, to constrain a bit the number
+    # of clusters
+    knn = NearestNeighbors(n_neighbors=min_samples, n_jobs=20, metric="euclidean")
+    knn_fit = knn.fit(SXX_norm)
+
+    distances, indices = knn_fit.kneighbors(SXX_norm)
+    distances = np.sort(distances, axis=0)
+    distances = distances[:, 1]
+
+    eps = distances[np.argmax(distances)]
+
     # Cluster power-spectra
     clustering = DBSCAN(eps=eps, min_samples=min_samples).fit(SXX_norm)
     clustering.labels_ = reassign_noise_points(SXX_norm, clustering.labels_)
     unique_labels = np.unique(clustering.labels_)
     n_cluster = len(unique_labels)
-
-    #################################################################
-    # Order labels by power peak
-    #################################################################
-    partial_average_for_cluster = partial(
-        average_for_cluster, data=SXX_norm, cluster_labels=clustering.labels_
-    )
-
-    out = np.stack(
-        [partial_average_for_cluster(label=label) for label in unique_labels]
-    )
-
-    order = np.argsort(out.argmax(axis=1))
 
     #################################################################
     # Generate composite signals
@@ -177,13 +209,27 @@ for channel in channels:
         ]
 
     composite = xr.concat(composite, "blocks")
-    composite = composite.assign_coords({"IMFs": range(n_cluster + 1)})
     composite.attrs = attrs
+    composite.attrs["DBSCAN_labels"] = clustering.labels_
+    composite.attrs["DBSCAN_eps"] = eps
 
     CMP += [composite]
 
+    #################################################################
+    # Compute power-spectrum for composite signals
+    #################################################################
+    SXX_composite, f_composite = f_mt(composite)
+
+    SXX_composite = xr.DataArray(
+        SXX_composite,
+        dims=("blocks", "IMFs", "freqs"),
+        coords={"IMFs": labels, "freqs": f_composite},
+    )
+
+    CMP_PS += [SXX_composite]
+
+CMP_PS = xr.Dataset({f"channel{i + 1}": CMP_PS[i] for i in range(n_channels)})
 CMP = xr.Dataset({f"channel{i + 1}": CMP[i] for i in range(n_channels)})
-CMP.attrs["DBSCAN_eps"] = 200
 CMP.attrs["DBSCAN_min_smamples"] = 20
 
 ##############################################################################
@@ -191,10 +237,14 @@ CMP.attrs["DBSCAN_min_smamples"] = 20
 ##############################################################################
 
 SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}")
-FILE_NAME = f"composite_signals_{condition}_method_{method}_max_imfs_{max_imfs}.nc"
+FILE_NAME_CMP = f"composite_signals_{condition}_method_{method}_max_imfs_{max_imfs}.nc"
+FILE_NAME_CMP_PS = (
+    f"ps_composite_signals_{condition}_method_{method}_max_imfs_{max_imfs}.nc"
+)
 
 
 if not os.path.exists(SAVE_TO):
     os.makedirs(SAVE_TO)
 
-CMP.to_netcdf(os.path.join(SAVE_TO, FILE_NAME))
+CMP.to_netcdf(os.path.join(SAVE_TO, FILE_NAME_CMP))
+CMP_PS.to_netcdf(os.path.join(SAVE_TO, FILE_NAME_CMP_PS))
