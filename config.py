@@ -10,9 +10,9 @@ metadata = {}
 metadata["rec_info"] = r"/home/vinicius/funcog/Neural Data/Data_Processed.xlsx"
 metadata["monkey"] = {"FN": {}, "WI": {}}
 metadata["monkey"]["FN"]["n_channels"] = 64
-metadata["monkey"]["WI"]["n_channels"] = 128
 metadata["monkey"]["FN"]["n_channels_to_load"] = 40
 metadata["monkey"]["WI"]["n_channels"] = 128
+metadata["monkey"]["WI"]["n_channels_to_load"] = 128
 
 metadata["monkey"]["FN"]["dates"] = [
     "10-13-2022",

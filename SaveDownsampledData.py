@@ -20,7 +20,7 @@ args = parser.parse_args()
 monkey = args.MONKEY
 sid = args.SESSION_ID
 
-session = metadata["monkey"]["FN"]["dates"][sid]
+session = metadata["monkey"][monkey]["dates"][sid]
 
 ##############################################################################
 # Load data
@@ -51,7 +51,7 @@ attrs_dict = dict(zip(_sel_attrs, values))
 # Total number of channels
 n_channels = attrs["Num_chan"].values[0]
 # Number of channels to load
-n_channels_to_load = metadata["monkey"][monkey]["n_channels_to_load"] = 40
+n_channels_to_load = metadata["monkey"][monkey]["n_channels_to_load"]
 timestamps = np.asarray(h5py.File(tspath).get("timestamps")).squeeze()
 
 

@@ -223,7 +223,7 @@ for channel in channels:
     SXX_composite = xr.DataArray(
         SXX_composite,
         dims=("blocks", "IMFs", "freqs"),
-        coords={"IMFs": labels, "freqs": f_composite},
+        coords={"IMFs": composite.IMFs.values, "freqs": f_composite},
     )
 
     CMP_PS += [SXX_composite]
