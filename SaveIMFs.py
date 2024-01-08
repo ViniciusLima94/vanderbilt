@@ -26,7 +26,7 @@ monkey = args.MONKEY
 sid = args.SESSION_ID
 condition = args.CONDITION
 
-session = metadata["monkey"]["FN"]["dates"][sid]
+session = metadata["monkey"][monkey]["dates"][sid]
 
 
 ##############################################################################
@@ -106,7 +106,7 @@ t_end = data.times.data[0]
 # End of treehouse
 t_th_end = float(data.attrs["TH_end"].split(", ")[1])
 # Beggining of sleep
-t_sleep_init = float(data.attrs["Sleep_start"].split(", ")[1])
+# t_sleep_init = float(data.attrs["Sleep_start"].split(", ")[1])
 
 if condition == "task":
     data = data.sel(times=slice(t_init, t_th_end))

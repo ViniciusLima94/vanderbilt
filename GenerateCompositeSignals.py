@@ -30,7 +30,7 @@ monkey = args.MONKEY
 sid = args.SESSION_ID
 condition = args.CONDITION
 
-session = metadata["monkey"]["FN"]["dates"][sid]
+session = metadata["monkey"][monkey]["dates"][sid]
 
 # DBSCAN Parameters
 min_samples = 20
@@ -143,8 +143,11 @@ filepath = os.path.join(
 )
 
 IMFs_dataset = xr.open_dataset(filepath)
-channels = list(IMFs_dataset.keys())
+channels = np.asarray(list(IMFs_dataset.keys()))
 n_channels = len(channels)
+
+if monkey == "WI":
+    channels = channels[::2]
 
 ##############################################################################
 # Get composites
