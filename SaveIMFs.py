@@ -152,7 +152,7 @@ for channel in __iter:
         verbose=False
     )
     # Set same number of IMFs for all blocks
-    imf = standardize_imf_per_block(imf)
+    # imf = standardize_imf_per_block(imf)
     IMFs += [imf]
 
 IMFs = xr.Dataset({f"channel{i + 1}": IMFs[i] for i in range(n_channels)})

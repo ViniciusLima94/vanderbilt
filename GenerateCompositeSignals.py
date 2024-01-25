@@ -144,10 +144,11 @@ filepath = os.path.join(
 
 IMFs_dataset = xr.open_dataset(filepath)
 channels = np.asarray(list(IMFs_dataset.keys()))
-n_channels = len(channels)
 
 if monkey == "WI":
     channels = channels[::2]
+
+n_channels = len(channels)
 
 ##############################################################################
 # Get composites
