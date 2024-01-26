@@ -244,18 +244,17 @@ for channel in channels:
 
 CMP_PS = xr.Dataset({f"channel{i + 1}": CMP_PS[i] for i in range(n_channels)})
 CMP = xr.Dataset({f"channel{i + 1}": CMP[i] for i in range(n_channels)})
-CMP.attrs["DBSCAN_min_smamples"] = 20
+CMP.attrs["DBSCAN_min_smamples"] = min_samples
 
 ##############################################################################
 # Save composite signals
 ##############################################################################
 
 SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}")
-FILE_NAME_CMP = f"composite_signals_{condition}_method_{method}_max_imfs_{max_imfs}.nc"
+FILE_NAME_CMP = f"composite_signals_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
 FILE_NAME_CMP_PS = (
-    f"ps_composite_signals_{condition}_method_{method}_max_imfs_{max_imfs}.nc"
+    f"ps_composite_signals_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
 )
-
 
 if not os.path.exists(SAVE_TO):
     os.makedirs(SAVE_TO)
