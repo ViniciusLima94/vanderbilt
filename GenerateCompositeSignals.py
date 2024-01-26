@@ -23,12 +23,19 @@ parser.add_argument(
     type=str,
     choices=["task", "sleep"],
 )
+parser.add_argument(
+    "STD_IMFS",
+    help="whether to standardize number of IMFs per block or not",
+    type=int,
+    choices=[0, 1]
+)
 
 args = parser.parse_args()
 
 monkey = args.MONKEY
 sid = args.SESSION_ID
 condition = args.CONDITION
+std = bool(args.STD_IMFS)
 
 session = metadata["monkey"][monkey]["dates"][sid]
 
@@ -139,7 +146,7 @@ def curvature(x):
 # Define path to data
 ROOT = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}")
 filepath = os.path.join(
-    ROOT, f"IMFs_{condition}_method_{method}_max_imfs_{max_imfs}.nc"
+    ROOT, f"IMFs_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
 )
 
 IMFs_dataset = xr.open_dataset(filepath)
@@ -164,8 +171,8 @@ for channel in channels:
     #################################################################
     # Get IMFs for channel
     #################################################################
-    IMFs_single = IMFs_dataset[channel].load().dropna("IMFs")
-    IMFs = IMFs_single.stack(samples=("blocks", "IMFs")).T.data
+    IMFs_single = IMFs_dataset[channel].load()
+    IMFs = IMFs_single.stack(samples=("blocks", "IMFs")).dropna("samples").T.data
     attrs = IMFs_single.attrs
 
     #################################################################
@@ -198,12 +205,15 @@ for channel in channels:
     # Generate composite signals
     #################################################################
     n_blocks = IMFs_single.shape[0]
-    cluster_labels = clustering.labels_.reshape(-1, IMFs_single.shape[1])
+    # cluster_labels = clustering.labels_.reshape(-1, IMFs_single.shape[1])
+    blocks_idx = np.hstack(([0], np.cumsum(IMFs_single.n_imfs_per_block)))
 
     composite = []
 
     for i in range(n_blocks):
-        labels = cluster_labels[i]
+        # labels = cluster_labels[i]
+        i0, i1 = blocks_idx[i], blocks_idx[i + 1]
+        labels = clustering.labels_[i0:i1]
         composite += [
             IMFs_single[i]
             .dropna("IMFs")

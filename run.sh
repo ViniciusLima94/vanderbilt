@@ -15,10 +15,10 @@ fi
 
 if [[ $1 == "saveimfs" ]]
 then
-    python -O SaveIMFs.py $2 $SLURM_ARRAY_TASK_ID "task"
+    python -O SaveIMFs.py $2 $SLURM_ARRAY_TASK_ID "task" 0
 fi
 
 if [[ $1 == "gencomposites" ]]
 then
-    python -O GenerateCompositeSignals.py $2 $SLURM_ARRAY_TASK_ID "task"
+    python -O GenerateCompositeSignals.py $2 $SLURM_ARRAY_TASK_ID "task" 1
 fi

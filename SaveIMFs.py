@@ -19,12 +19,19 @@ parser.add_argument(
     type=str,
     choices=["task", "sleep"],
 )
+parser.add_argument(
+    "STD_IMFS",
+    help="whether to standardize number of IMFs per block or not",
+    type=int,
+    choices=[0, 1]
+)
 
 args = parser.parse_args()
 
 monkey = args.MONKEY
 sid = args.SESSION_ID
 condition = args.CONDITION
+std = bool(args.STD_IMFS)
 
 session = metadata["monkey"][monkey]["dates"][sid]
 
@@ -82,6 +89,8 @@ def standardize_imf_per_block(IMFs):
         else:
             reduced += [temp]
 
+    # Now all blocks have n_imfs_min IMFs
+    attrs["n_imfs_per_block"] = np.ones_like( IMFs.n_imfs_per_block ) * n_imfs_min
     IMFs = xr.concat(reduced, "blocks").assign_coords({"IMFs": IMFs_coords})
     IMFs.attrs = attrs
 
@@ -147,12 +156,13 @@ for channel in __iter:
         nensembles=nensembles,
         use_min_block_size=True,
         remove_fastest_imf=True,
-        n_jobs=20,
+        n_jobs=30,
         imf_opts=imf_opts,
         verbose=False
     )
     # Set same number of IMFs for all blocks
-    # imf = standardize_imf_per_block(imf)
+    if std:
+        imf = standardize_imf_per_block(imf)
     IMFs += [imf]
 
 IMFs = xr.Dataset({f"channel{i + 1}": IMFs[i] for i in range(n_channels)})
@@ -167,7 +177,7 @@ IMFs.attrs["nensembles"] = nensembles
 ##############################################################################
 
 SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}")
-FILE_NAME = f"IMFs_{condition}_method_{method}_max_imfs_{max_imfs}.nc"
+FILE_NAME = f"IMFs_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
 
 
 if not os.path.exists(SAVE_TO):
