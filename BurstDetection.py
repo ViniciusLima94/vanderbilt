@@ -4,11 +4,12 @@ from functools import partial
 import numpy as np
 import xarray as xr
 import scipy
+import jax
+import jax.numpy as jnp
 from tqdm import tqdm
 from frites.utils import parallel_func
 from mne.time_frequency import tfr_array_morlet
 from config import metadata, method, max_imfs
-
 from skimage import measure as ski
 
 
@@ -24,12 +25,19 @@ parser.add_argument(
     type=str,
     choices=["task", "sleep"],
 )
+parser.add_argument(
+    "STD_IMFS",
+    help="whether to standardize number of IMFs per block or not",
+    type=int,
+    choices=[0, 1],
+)
 
 args = parser.parse_args()
 
 monkey = args.MONKEY
 sid = args.SESSION_ID
 condition = args.CONDITION
+std = bool(args.STD_IMFS)
 
 session = metadata["monkey"][monkey]["dates"][sid]
 
@@ -118,11 +126,11 @@ def detect_bursts(
     z = (spectra - spectra.mean(mean_dim)) / spectra.std(mean_dim)
     return_labeled_image_partial = partial(return_labeled_image, img=z)
 
-    labeled_image, labels, nlabels = return_labeled_image(z, init_threshold)
+    labeled_image, _, _ = return_labeled_image(z, init_threshold)
     thr = init_threshold - gamma
 
     while thr >= min_threshold:
-        new_labeled_image, new_labels, new_nlabels = return_labeled_image_partial(
+        new_labeled_image, new_labels, _ = return_labeled_image_partial(
             threshold=thr
         )
 
@@ -149,11 +157,11 @@ def detect_bursts(
 
 
 composites_path = os.path.expanduser(
-    f"~/funcog/HoffmanData/{monkey}/{session}/composite_signals_task_method_eemd_max_imfs_None_std_False.nc"
+    f"~/funcog/HoffmanData/{monkey}/{session}/composite_signals_task_method_eemd_max_imfs_None_std_{std}.nc"
 )
 
 ps_composites_path = os.path.expanduser(
-    f"~/funcog/HoffmanData/{monkey}/{session}/ps_composite_signals_task_method_eemd_max_imfs_None_std_False.nc"
+    f"~/funcog/HoffmanData/{monkey}/{session}/ps_composite_signals_task_method_eemd_max_imfs_None_std_{std}.nc"
 )
 
 
@@ -236,11 +244,11 @@ for i, channel in enumerate(channels):
     W_theta = xr.DataArray((W_theta * W_theta.conj()).real, dims=dims, coords=coords)
 
     W_gamma = tfr_array_morlet(
-        X.sel(components=1, channels=[31]).transpose("blocks", "channels", "times"),
+        X.sel(components=1, channels=[i]).transpose("blocks", "channels", "times"),
         1000,
         fvec_gamma,
         decim=10,
-        n_cycles=freqs / 2,
+        n_cycles=fvec_gamma / 2,
         n_jobs=30,
     ).squeeze()
 
@@ -272,17 +280,20 @@ for i, channel in enumerate(channels):
         coords={"freqs": fvec_gamma},
     )
 
-    labeled_bursts = xr.concat((labeled_theta_bursts, labeled_gamma_bursts),
-                               "components")
+    labeled_bursts = xr.concat(
+        (labeled_theta_bursts, labeled_gamma_bursts), "components"
+    )
     labeled_bursts.attrs = attrs
     BURSTS += [labeled_bursts]
 
 BURSTS = xr.Dataset({f"channel{i + 1}": BURSTS[i] for i in range(n_channels)})
 
 ##############################################################################
-# Save labeled burts 
+# Save labeled burts
 ##############################################################################
 
 
 SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}")
-FILE_NAME_BURSTS = f"labeled_bursts_{condition}_method_{method}_max_imfs_{max_imfs}.nc"
+FILE_NAME_BURSTS = (
+    f"labeled_bursts_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
+)
