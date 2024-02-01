@@ -240,7 +240,7 @@ for i, channel in enumerate(channels):
     ).squeeze()
 
     dims = ("batches", "freqs", "times")
-    coords = dict(freqs=freqs)
+    coords = dict(freqs=fvec_theta)
     W_theta = xr.DataArray((W_theta * W_theta.conj()).real, dims=dims, coords=coords)
 
     W_gamma = tfr_array_morlet(
@@ -253,7 +253,7 @@ for i, channel in enumerate(channels):
     ).squeeze()
 
     dims = ("batches", "freqs", "times")
-    coords = dict(freqs=freqs)
+    coords = dict(freqs=fvec_gamma)
     W_gamma = xr.DataArray((W_gamma * W_gamma.conj()).real, dims=dims, coords=coords)
 
     # Detect burts
