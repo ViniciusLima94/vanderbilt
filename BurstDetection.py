@@ -174,14 +174,15 @@ freqs = ps_composites.freqs.data
 n_channels = len(channels)
 n_blocks = composites.sizes["blocks"]
 
-# Get slow and fast composites
 X = []
+
+bands = {}
 
 for channel in tqdm(channels):
     data = ps_composites[channel].load().dropna("IMFs")
     x = composites[channel].load().dropna("IMFs")
 
-    # freqs = data.freqs.data
+    freqs = data.freqs.data
     kernel = np.hanning(50)
 
     data_sm = xr.DataArray(
@@ -200,16 +201,22 @@ for channel in tqdm(channels):
         peaks.shape
     )
 
-    fast_idx = np.logical_and(peaks.flatten() >= 55, peaks.flatten() <= np.inf).reshape(
-        peaks.shape
-    )
+    min_gamma = peaks.min(0)[-1]
+    if min_gamma > 50:
+        min_gamma = 50
+    
+    fast_idx = np.logical_and(
+        peaks.flatten() >= min_gamma, peaks.flatten() <= np.inf
+    ).reshape(peaks.shape)
 
     slow = (x * slow_idx[..., None]).sum("IMFs")
     fast = (x * fast_idx[..., None]).sum("IMFs")
+    bands[channel] = {}
+    bands[channel]["theta"] = [3, 10]
+    bands[channel]["gamma"] = [min_gamma, np.inf]
     X += [xr.concat((slow, fast), "components")]
 
 X = xr.concat(X, "channels")
-
 
 ##############################################################################
 # Decompose the signal in time and frequency domain
@@ -227,8 +234,12 @@ BURSTS = []
 
 for i, channel in enumerate(channels):
 
-    fvec_theta = np.linspace(3, 10, 30)
-    fvec_gamma = np.linspace(55, 150, 30)
+    fvec_theta = np.linspace(bands[channel]["theta"][0],
+                             bands[channel]["theta"][1] ,
+                             30)
+    fvec_gamma = np.linspace(bands[channel]["gamma"][0],
+                             bands[channel]["gamma"][1],
+                             30)
 
     W_theta = tfr_array_morlet(
         X.sel(components=0, channels=[i]).transpose("blocks", "channels", "times"),
