@@ -130,9 +130,7 @@ def detect_bursts(
     thr = init_threshold - gamma
 
     while thr >= min_threshold:
-        new_labeled_image, new_labels, _ = return_labeled_image_partial(
-            threshold=thr
-        )
+        new_labeled_image, new_labels, _ = return_labeled_image_partial(threshold=thr)
 
         indexes = np.zeros(new_labeled_image.shape, dtype=np.bool_)
 
@@ -145,7 +143,7 @@ def detect_bursts(
         not_indexes = np.logical_not(indexes)
         new_labeled_image = new_labeled_image * not_indexes + labeled_image * indexes
 
-        labeled_image, labels, nlabels = return_labeled_image(new_labeled_image, 0)
+        labeled_image, _, _ = return_labeled_image(new_labeled_image, 0)
         thr -= gamma
 
     return labeled_image
@@ -197,14 +195,19 @@ for channel in tqdm(channels):
 
     peaks = freqs[data_sm.argmax("freqs")]
 
-    slow_idx = np.logical_and(peaks.flatten() >= 3, peaks.flatten() <= 10).reshape(
-        peaks.shape
-    )
+    # Defining limits of slow and fast rythms
+    min_peaks = peaks.min(0)
+    min_theta = min_peaks[np.argmin(np.abs(min_peaks - 3))]
 
-    min_gamma = peaks.min(0)[-1]
-    if min_gamma > 50:
-        min_gamma = 50
-    
+    max_peaks = peaks.max(0)
+    max_theta = max(np.ceil(max_peaks[np.argmin(np.abs(max_peaks - 10))]), 10)
+
+    min_gamma = min(peaks.min(0)[-1], 50)
+
+    slow_idx = np.logical_and(
+        peaks.flatten() >= min_theta, peaks.flatten() <= max_theta
+    ).reshape(peaks.shape)
+
     fast_idx = np.logical_and(
         peaks.flatten() >= min_gamma, peaks.flatten() <= np.inf
     ).reshape(peaks.shape)
@@ -212,11 +215,12 @@ for channel in tqdm(channels):
     slow = (x * slow_idx[..., None]).sum("IMFs")
     fast = (x * fast_idx[..., None]).sum("IMFs")
     bands[channel] = {}
-    bands[channel]["theta"] = [3, 10]
-    bands[channel]["gamma"] = [min_gamma, np.inf]
+    bands[channel]["theta"] = [min_theta, max_theta]
+    bands[channel]["gamma"] = [min_gamma, 150]
     X += [xr.concat((slow, fast), "components")]
 
 X = xr.concat(X, "channels")
+X = X.assign_coords({"channels": channels})
 
 ##############################################################################
 # Decompose the signal in time and frequency domain
@@ -225,29 +229,29 @@ X = xr.concat(X, "channels")
 
 def _for_batch(W):
     init = int(((W.max("times") - W.mean("times")) / W.std("times")).max().data.item())
-    return detect_bursts(W, init, 0, 0.3, relative=False)
+    init = np.floor(init)
+    return detect_bursts(W, init, 0, 0.1, relative=False)
 
 
 parallel, p_fun = parallel_func(_for_batch, verbose=False, n_jobs=20, total=n_blocks)
 
-BURSTS = []
+BURSTS_SLOW = []
+BURSTS_FAST = []
 
-for i, channel in enumerate(channels):
+for channel in channels:
 
-    fvec_theta = np.linspace(bands[channel]["theta"][0],
-                             bands[channel]["theta"][1] ,
-                             30)
-    fvec_gamma = np.linspace(bands[channel]["gamma"][0],
-                             bands[channel]["gamma"][1],
-                             30)
+    fvec_theta = np.linspace(bands[channel]["theta"][0], bands[channel]["theta"][1], 30)
+    fvec_gamma = np.linspace(bands[channel]["gamma"][0], bands[channel]["gamma"][1], 30)
 
     W_theta = tfr_array_morlet(
-        X.sel(components=0, channels=[i]).transpose("blocks", "channels", "times"),
+        X.sel(components=0, channels=[channel]).transpose(
+            "blocks", "channels", "times"
+        ),
         1000,
         fvec_theta,
-        n_cycles=12,
+        n_cycles=10,
         decim=10,
-        n_jobs=30,
+        n_jobs=20,
     ).squeeze()
 
     dims = ("batches", "freqs", "times")
@@ -255,12 +259,14 @@ for i, channel in enumerate(channels):
     W_theta = xr.DataArray((W_theta * W_theta.conj()).real, dims=dims, coords=coords)
 
     W_gamma = tfr_array_morlet(
-        X.sel(components=1, channels=[i]).transpose("blocks", "channels", "times"),
+        X.sel(components=1, channels=[channel]).transpose(
+            "blocks", "channels", "times"
+        ),
         1000,
         fvec_gamma,
         decim=10,
         n_cycles=fvec_gamma / 2,
-        n_jobs=30,
+        n_jobs=20,
     ).squeeze()
 
     dims = ("batches", "freqs", "times")
@@ -268,15 +274,13 @@ for i, channel in enumerate(channels):
     W_gamma = xr.DataArray((W_gamma * W_gamma.conj()).real, dims=dims, coords=coords)
 
     # Detect burts
+    # slow
+    labeled_theta_bursts = np.stack(parallel(p_fun(W) for W in W_theta))
 
-    # theta
-    labeled_theta_bursts = parallel(p_fun(W) for W in W_theta)
-    labeled_theta_bursts = np.stack(labeled_theta_bursts)
+    # fast
+    labeled_gamma_bursts = np.stack(parallel(p_fun(W) for W in W_gamma))
 
-    # gamma
-    labeled_gamma_bursts = parallel(p_fun(W) for W in W_gamma)
-    labeled_gamma_bursts = np.stack(labeled_gamma_bursts)
-
+    # Attributes from composites
     attrs = composites[channel].attrs
 
     labeled_theta_bursts = xr.DataArray(
@@ -284,27 +288,31 @@ for i, channel in enumerate(channels):
         dims=("blocks", "freqs", "times"),
         coords={"freqs": fvec_theta},
     )
+    labeled_theta_bursts.attrs = attrs
+    labeled_theta_bursts.attrs["band"] = bands[channel]["theta"]
+    BURSTS_SLOW += [labeled_theta_bursts]
 
     labeled_gamma_bursts = xr.DataArray(
-        labeled_theta_bursts,
+        labeled_gamma_bursts,
         dims=("blocks", "freqs", "times"),
         coords={"freqs": fvec_gamma},
     )
+    labeled_gamma_bursts.attrs = attrs
+    labeled_gamma_bursts.attrs["band"] = bands[channel]["gamma"]
+    BURSTS_FAST += [labeled_gamma_bursts]
 
-    labeled_bursts = xr.concat(
-        (labeled_theta_bursts, labeled_gamma_bursts), "components"
-    )
-    labeled_bursts.attrs = attrs
-    BURSTS += [labeled_bursts]
+    del labeled_theta_bursts, labeled_gamma_bursts
 
-BURSTS = xr.Dataset({f"channel{i + 1}": BURSTS[i] for i in range(n_channels)})
+BURSTS_SLOW = xr.Dataset({f"channel{i + 1}": BURSTS_SLOW[i] for i in range(n_channels)})
+BURSTS_FAST = xr.Dataset({f"channel{i + 1}": BURSTS_FAST[i] for i in range(n_channels)})
 
 ##############################################################################
 # Save labeled burts
 ##############################################################################
 
-
-SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}")
-FILE_NAME_BURSTS = (
-    f"labeled_bursts_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
-)
+# SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}/bursts")
+#if not os.path.exists(SAVE_TO):
+#os.makedirs(SAVE_TO)
+# FILE_NAME_BURSTS = (
+# f"labeled_bursts_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
+# )
