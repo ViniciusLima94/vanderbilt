@@ -238,7 +238,7 @@ parallel, p_fun = parallel_func(_for_batch, verbose=False, n_jobs=20, total=n_bl
 BURSTS_SLOW = []
 BURSTS_FAST = []
 
-for channel in channels:
+for channel in channels[:1]:
 
     fvec_theta = np.linspace(bands[channel]["theta"][0], bands[channel]["theta"][1], 30)
     fvec_gamma = np.linspace(bands[channel]["gamma"][0], bands[channel]["gamma"][1], 30)
@@ -290,7 +290,9 @@ for channel in channels:
     )
     labeled_theta_bursts.attrs = attrs
     labeled_theta_bursts.attrs["band"] = bands[channel]["theta"]
-    BURSTS_SLOW += [labeled_theta_bursts]
+    BURSTS_SLOW += [labeled_theta_bursts.copy()]
+
+    del labeled_theta_bursts
 
     labeled_gamma_bursts = xr.DataArray(
         labeled_gamma_bursts,
@@ -299,9 +301,9 @@ for channel in channels:
     )
     labeled_gamma_bursts.attrs = attrs
     labeled_gamma_bursts.attrs["band"] = bands[channel]["gamma"]
-    BURSTS_FAST += [labeled_gamma_bursts]
+    BURSTS_FAST += [labeled_gamma_bursts.copy()]
 
-    del labeled_theta_bursts, labeled_gamma_bursts
+    del labeled_gamma_bursts
 
 BURSTS_SLOW = xr.Dataset({f"channel{i + 1}": BURSTS_SLOW[i] for i in range(n_channels)})
 BURSTS_FAST = xr.Dataset({f"channel{i + 1}": BURSTS_FAST[i] for i in range(n_channels)})
@@ -310,9 +312,18 @@ BURSTS_FAST = xr.Dataset({f"channel{i + 1}": BURSTS_FAST[i] for i in range(n_cha
 # Save labeled burts
 ##############################################################################
 
-# SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}/bursts")
-#if not os.path.exists(SAVE_TO):
-#os.makedirs(SAVE_TO)
-# FILE_NAME_BURSTS = (
-# f"labeled_bursts_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
-# )
+SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}/bursts")
+
+if not os.path.exists(SAVE_TO):
+    os.makedirs(SAVE_TO)
+
+FILE_NAME_BURSTS_SLOW = (
+f"labeled_bursts_slow_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
+)
+FILE_NAME_BURSTS_FAST = (
+f"labeled_bursts_fast_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
+)
+
+BURSTS_SLOW.to_netcdf(os.path.join(SAVE_TO, FILE_NAME_BURSTS_SLOW))
+BURSTS_FAST.to_netcdf(os.path.join(SAVE_TO, FILE_NAME_BURSTS_FAST))
+
