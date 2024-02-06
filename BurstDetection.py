@@ -197,7 +197,8 @@ for channel in tqdm(channels):
 
     # Defining limits of slow and fast rythms
     min_peaks = peaks.min(0)
-    min_theta = min_peaks[np.argmin(np.abs(min_peaks - 3))]
+    # min_theta = min_peaks[np.argmin(np.abs(min_peaks - 3))]
+    min_theta = peaks.min()
 
     max_peaks = peaks.max(0)
     max_theta = max(np.ceil(max_peaks[np.argmin(np.abs(max_peaks - 10))]), 10)
@@ -250,13 +251,14 @@ for channel in channels:
     fvec_theta = np.linspace(bands[channel]["theta"][0], bands[channel]["theta"][1], 30)
     fvec_gamma = np.linspace(bands[channel]["gamma"][0], bands[channel]["gamma"][1], 30)
 
+    n_cycles_theta = np.floor(X.shape[-1] / 10000 * (2.0 * np.pi * fvec_theta[0]))
     W_theta = tfr_array_morlet(
         X.sel(components=0, channels=[channel]).transpose(
             "blocks", "channels", "times"
         ),
         1000,
         fvec_theta,
-        n_cycles=10,
+        n_cycles=n_cycles_theta,
         decim=10,
         n_jobs=20,
     ).squeeze()

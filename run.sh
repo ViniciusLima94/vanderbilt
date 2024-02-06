@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=2000
 #SBATCH --cpus-per-task=40
-#SBATCH --array=0-18
+#SBATCH --array=4,5,6,7,8,10,15,17,18
 
 
 if [[ $1 == "savedata" ]]
