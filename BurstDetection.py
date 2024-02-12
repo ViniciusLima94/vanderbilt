@@ -47,25 +47,6 @@ session = metadata["monkey"][monkey]["dates"][sid]
 ##############################################################################
 
 
-def to_bin_freq(freqs, peaks):
-
-    n_blocks, n_peaks = peaks.shape
-    n_freqs = freqs.shape[0]
-
-    def _for_peak(carry, peak):
-
-        vec = jnp.zeros(n_freqs, dtype=int)
-        indexes = jnp.stack(
-            [jnp.argmin(jnp.abs(freqs - peak[i])) for i in range(n_peaks)]
-        )
-        vec = vec.at[indexes].set(1)
-        return carry, vec
-
-    _, vec = jax.lax.scan(_for_peak, None, peaks)
-
-    return np.asarray(vec)
-
-
 def return_labeled_image(img: np.ndarray = None, threshold: float = None):
     """
     Label regions in a binary image using a given threshold.
