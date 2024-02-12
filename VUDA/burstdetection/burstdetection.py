@@ -1,6 +1,7 @@
 import numba as nb
 import numpy as np
 import xarray as xr
+from functools import partial
 from tqdm import tqdm
 from skimage import measure as ski
 
