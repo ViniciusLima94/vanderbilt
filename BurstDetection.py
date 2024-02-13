@@ -47,87 +47,90 @@ session = metadata["monkey"][monkey]["dates"][sid]
 ##############################################################################
 
 
-def return_labeled_image(img: np.ndarray = None, threshold: float = None):
-    """
-    Label regions in a binary image using a given threshold.
+# def return_labeled_image(img: np.ndarray = None, threshold: float = None):
+    # """
+    # Label regions in a binary image using a given threshold.
 
-    Parameters:
-    - img (numpy.ndarray): The binary image to label.
-    - threshold (float): The threshold for labeling.
+    # Parameters:
+    # - img (numpy.ndarray): The binary image to label.
+    # - threshold (float): The threshold for labeling.
 
-    Returns:
-    - numpy.ndarray: A labeled image with connected regions.
-    - numpy.ndarray: Array of unique labels.
-    - int: The number of unique labels.
+    # Returns:
+    # - numpy.ndarray: A labeled image with connected regions.
+    # - numpy.ndarray: Array of unique labels.
+    # - int: The number of unique labels.
 
-    This function labels connected regions in a binary image based on a given threshold.
-    It uses the `ski.measure.label` function from the scikit-image library to perform
-    the labeling. The resulting labeled image contains connected regions with unique
-    labels, and the number of labels is also returned.
-    """
-    labeled_image = ski.label(img > threshold, background=0)
-    labels = np.unique(labeled_image)[1:]
-    nlabels = len(labels)
-    return labeled_image, labels, nlabels
+    # This function labels connected regions in a binary image based on a given threshold.
+    # It uses the `ski.measure.label` function from the scikit-image library to perform
+    # the labeling. The resulting labeled image contains connected regions with unique
+    # labels, and the number of labels is also returned.
+    # """
+    # labeled_image = ski.label(img > threshold, background=0)
+    # labels = np.unique(labeled_image)[1:]
+    # nlabels = len(labels)
+    # return labeled_image, labels, nlabels
 
 
-def detect_bursts(
-    spectra: xr.DataArray,
-    init_threshold: float,
-    min_threshold: float,
-    gamma: float,
-    relative: bool = True,
-):
-    """
-    Detect bursts in spectra using a dynamic thresholding approach.
+# def detect_bursts(
+    # spectra: xr.DataArray,
+    # init_threshold: float,
+    # min_threshold: float,
+    # gamma: float,
+    # relative: bool = True,
+# ):
+    # """
+    # Detect bursts in spectra using a dynamic thresholding approach.
 
-    Parameters:
-    - spectra (numpy.ndarray): The input spectra to analyze.
-    - init_threshold (float): The initial threshold for labeling.
-    - min_threshold (float): The minimum threshold to stop the labeling process.
-    - gamma (float): The step size for updating the threshold.
-    - relative (bool, optional): If True, z-score is computed relative to the mean
-                                 along the "times" dimension; otherwise, it's computed
-                                 relative to the overall mean.
+    # Parameters:
+    # - spectra (numpy.ndarray): The input spectra to analyze.
+    # - init_threshold (float): The initial threshold for labeling.
+    # - min_threshold (float): The minimum threshold to stop the labeling process.
+    # - gamma (float): The step size for updating the threshold.
+    # - relative (bool, optional): If True, z-score is computed relative to the mean
+                                 # along the "times" dimension; otherwise, it's computed
+                                 # relative to the overall mean.
 
-    Returns:
-    - numpy.ndarray: An image with labeled bursts.
+    # Returns:
+    # - numpy.ndarray: An image with labeled bursts.
 
-    This function detects bursts in a given spectra by iteratively updating a labeling
-    based on threshold values. It starts with an initial threshold, and in each iteration,
-    it updates the labeling using a lower threshold. The process continues until the
-    threshold reaches the minimum threshold value. The resulting labeled image contains
-    burst regions.
+    # This function detects bursts in a given spectra by iteratively updating a labeling
+    # based on threshold values. It starts with an initial threshold, and in each iteration,
+    # it updates the labeling using a lower threshold. The process continues until the
+    # threshold reaches the minimum threshold value. The resulting labeled image contains
+    # burst regions.
 
-    Note: The input spectra are first z-scored before applying labeling.
-    """
+    # Note: The input spectra are first z-scored before applying labeling.
+    # """
 
-    size = spectra.shape
-    mean_dim = "times" if relative else None
-    z = (spectra - spectra.mean(mean_dim)) / spectra.std(mean_dim)
-    return_labeled_image_partial = partial(return_labeled_image, img=z)
+    # size = spectra.shape
+    # mean_dim = "times" if relative else None
+    # z = (spectra - spectra.mean(mean_dim)) / spectra.std(mean_dim)
+    # return_labeled_image_partial = partial(return_labeled_image, img=z)
 
-    labeled_image, _, _ = return_labeled_image(z, init_threshold)
-    thr = init_threshold - gamma
+    # labeled_image, _, _ = return_labeled_image(z, init_threshold)
+    # thr = init_threshold - gamma
 
-    while thr >= min_threshold:
-        new_labeled_image, new_labels, _ = return_labeled_image_partial(threshold=thr)
+    # while thr >= min_threshold:
+        # new_labeled_image, new_labels, _ = return_labeled_image_partial(threshold=thr)
 
-        indexes = np.zeros(new_labeled_image.shape, dtype=np.bool_)
+        # indexes = np.zeros(new_labeled_image.shape, dtype=np.bool_)
 
-        for label in new_labels:
-            mask = new_labeled_image == label
-            unique_labels = np.unique(mask * labeled_image)
-            if len(unique_labels) > 2:
-                indexes = np.logical_or(indexes, mask)
+        # for label in new_labels:
+            # mask = new_labeled_image == label
+            # unique_labels = np.unique(mask * labeled_image)
+            # if len(unique_labels) > 2:
+                # indexes = np.logical_or(indexes, mask)
 
-        not_indexes = np.logical_not(indexes)
-        new_labeled_image = new_labeled_image * not_indexes + labeled_image * indexes
+        # not_indexes = np.logical_not(indexes)
+        # new_labeled_image = new_labeled_image * not_indexes + labeled_image * indexes
 
-        labeled_image, _, _ = return_labeled_image(new_labeled_image, 0)
-        thr -= gamma
+        # labeled_image, _, _ = return_labeled_image(new_labeled_image, 0)
+        # thr -= gamma
 
-    return labeled_image
+    # return labeled_image
+
+
+from VUDA.burstdetection import detect_burts
 
 
 ##############################################################################
@@ -212,7 +215,9 @@ X = X.assign_coords({"channels": channels})
 def _for_batch(W):
     init = int(((W.max("times") - W.mean("times")) / W.std("times")).max().data.item())
     init = np.floor(init)
-    return detect_bursts(W, init, 0, 0.1, relative=False)
+    return detect_bursts(W, init, 0, 0.1,
+                         zscore_dims=("times", "freqs"),
+                         verbose=True)
 
 
 parallel, p_fun = parallel_func(_for_batch, verbose=False, n_jobs=20, total=n_blocks)

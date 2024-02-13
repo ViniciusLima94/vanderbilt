@@ -102,7 +102,7 @@ def detect_bursts(
 
     for thr in __iter:
         if verbose:
-            __iter.set_description(f"thrshold = {thr:.2f}")
+            __iter.set_description(f"threshold = {thr:.2f}")
         new_labeled_image, new_labels, new_nlabels = return_labeled_image_partial(
             threshold=thr
         )
