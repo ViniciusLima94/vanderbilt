@@ -27,3 +27,8 @@ if [[ $1 == "detectbursts" ]]
 then
     python -O BurstDetection.py $2 $SLURM_ARRAY_TASK_ID "task" 0
 fi
+
+if [[ $1 == "detectbursts3D" ]]
+then
+    python -O BurstDetection3D.py $2 $SLURM_ARRAY_TASK_ID "task" 0
+fi
