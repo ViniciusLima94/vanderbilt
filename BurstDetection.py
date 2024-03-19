@@ -3,12 +3,12 @@ import argparse
 from functools import partial
 import numpy as np
 import xarray as xr
-import scipy
+# import scipy
 import jax
 import jax.numpy as jnp
 from tqdm import tqdm
 from frites.utils import parallel_func
-from mne.time_frequency import tfr_array_morlet
+from mne.time_frequency import tfr_array_morlet, tfr_array_multitaper
 from config import metadata, method, max_imfs
 from skimage import measure as ski
 from VUDA.burstdetection import detect_bursts
@@ -42,14 +42,6 @@ std = bool(args.STD_IMFS)
 
 session = metadata["monkey"][monkey]["dates"][sid]
 
-
-##############################################################################
-# Helper functions
-##############################################################################
-
-
-
-
 ##############################################################################
 # Load data
 ##############################################################################
@@ -73,57 +65,6 @@ freqs = ps_composites.freqs.data
 n_channels = len(channels)
 n_blocks = composites.sizes["blocks"]
 
-# X = []
-
-# bands = {}
-
-# for channel in tqdm(channels):
-    # data = ps_composites[channel].load().dropna("IMFs")
-    # x = composites[channel].load().dropna("IMFs")
-
-    # freqs = data.freqs.data
-    # kernel = np.hanning(50)
-
-    # data_sm = xr.DataArray(
-        # scipy.signal.fftconvolve(data, kernel[None, None, :], mode="same", axes=2),
-        # dims=data.dims,
-        # coords=data.coords,
-    # )
-
-    # freqs = data.freqs.data
-
-    # n_blocks, n_IMFs, n_freqs = data.shape
-
-    # peaks = freqs[data_sm.argmax("freqs")]
-
-    # # Defining limits of slow and fast rythms
-    # min_peaks = peaks.min(0)
-    # # min_theta = min_peaks[np.argmin(np.abs(min_peaks - 3))]
-    # min_theta = peaks.min()
-
-    # max_peaks = peaks.max(0)
-    # max_theta = max(np.ceil(max_peaks[np.argmin(np.abs(max_peaks - 10))]), 10)
-
-    # min_gamma = min(peaks.min(0)[-1], 50)
-
-    # slow_idx = np.logical_and(
-        # peaks.flatten() >= min_theta, peaks.flatten() <= max_theta
-    # ).reshape(peaks.shape)
-
-    # fast_idx = np.logical_and(
-        # peaks.flatten() >= min_gamma, peaks.flatten() <= np.inf
-    # ).reshape(peaks.shape)
-
-    # slow = (x * slow_idx[..., None]).sum("IMFs")
-    # fast = (x * fast_idx[..., None]).sum("IMFs")
-    # bands[channel] = {}
-    # bands[channel]["theta"] = [min_theta, max_theta]
-    # bands[channel]["gamma"] = [min_gamma, 150]
-    # X += [xr.concat((slow, fast), "components")]
-
-# X = xr.concat(X, "channels")
-# X = X.assign_coords({"channels": channels})
-
 ##############################################################################
 # Decompose the signal in time and frequency domain
 ##############################################################################
@@ -132,15 +73,12 @@ n_blocks = composites.sizes["blocks"]
 def _for_batch(W):
     init = int(((W.max("times") - W.mean("times")) / W.std("times")).max().data.item())
     init = np.floor(init)
-    return detect_bursts(W, init, 0, 0.1,
+    return detect_bursts(W, init, 0, 0.5,
                          zscore_dims=("times", "freqs"),
-                         verbose=True)
+                         verbose=False)
 
 
 parallel, p_fun = parallel_func(_for_batch, verbose=False, n_jobs=20, total=n_blocks)
-
-# BURSTS_SLOW = []
-# BURSTS_FAST = []
 
 # Path in which to save the bursts
 SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}/bursts")
@@ -149,24 +87,40 @@ SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}/bursts")
 if not os.path.exists(SAVE_TO):
     os.makedirs(SAVE_TO)
 
-fvec = np.linspace(0.1, 150, 50)
+fvec = np.linspace(0.1, 150, 100)
 
-for channel in channels:
+for channel in channels[:1]:
 
     X = composites[channel].dropna("IMFs")
 
-    W = tfr_array_morlet(
+    W = tfr_array_multitaper(
         X.transpose("blocks", "IMFs", "times"),
         1000,
         fvec,
-        n_cycles=fvec / 2,
+        n_cycles=np.maximum(fvec / 4, 1),
+        time_bandwidth=2,
         decim=10,
+        output="power",
         n_jobs=20,
     ).squeeze()
 
     dims = ("batches", "IMFs", "freqs", "times")
     coords = dict(freqs=fvec)
-    W = xr.DataArray((W * W.conj()).real, dims=dims, coords=coords)
+
+    W = xr.DataArray(W, dims=dims, coords=coords)
+
+    # W = tfr_array_morlet(
+        # X.transpose("blocks", "IMFs", "times"),
+        # 1000,
+        # fvec,
+        # n_cycles=fvec / 2,
+        # decim=10,
+        # n_jobs=20,
+    # ).squeeze()
+
+    # dims = ("batches", "IMFs", "freqs", "times")
+    # coords = dict(freqs=fvec)
+    # W = xr.DataArray((W * W.conj()).real, dims=dims, coords=coords)
 
     labeled_bursts = []
     for ii in range(W.shape[1]):
