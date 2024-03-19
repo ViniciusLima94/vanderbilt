@@ -131,7 +131,9 @@ for channel in channels[:1]:
     )
     labeled_bursts.attrs = attrs
 
+    print(f"saving files {channel}")
+
     labeled_bursts.to_netcdf(os.path.join(SAVE_TO, FILE_NAME_BURSTS))
-    W.to_netcdf(os.path.join(SAVE_TO, FILE_NAME_SPEC))
+    W.astype(int).to_netcdf(os.path.join(SAVE_TO, FILE_NAME_SPEC))
 
     del labeled_bursts
