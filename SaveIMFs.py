@@ -111,12 +111,13 @@ data = xr.load_dataarray(filepath)
 # Get zero timestamp
 t_init = data.times.data[0]
 # Get final timestamp
-t_end = data.times.data[0]
+t_end = data.times.data[-1]
 # End of treehouse
 t_th_end = float(data.attrs["TH_end"].split(", ")[1])
 # Beggining of sleep
-# t_sleep_init = float(data.attrs["Sleep_start"].split(", ")[1])
+t_sleep_init = float(data.attrs["Sleep_start"].split(", ")[1])
 
+print(t_init, t_th_end, t_sleep_init, t_end)
 if condition == "task":
     data = data.sel(times=slice(t_init, t_th_end))
 else:

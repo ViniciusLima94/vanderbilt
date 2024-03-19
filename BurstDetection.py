@@ -130,7 +130,7 @@ session = metadata["monkey"][monkey]["dates"][sid]
     # return labeled_image
 
 
-from VUDA.burstdetection import detect_burts
+from VUDA.burstdetection import detect_bursts
 
 
 ##############################################################################
