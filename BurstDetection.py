@@ -42,6 +42,8 @@ std = bool(args.STD_IMFS)
 
 session = metadata["monkey"][monkey]["dates"][sid]
 
+print(session)
+
 ##############################################################################
 # Load data
 ##############################################################################
@@ -89,7 +91,7 @@ if not os.path.exists(SAVE_TO):
 
 fvec = np.linspace(0.1, 150, 100)
 
-for channel in channels[:1]:
+for channel in channels:
 
     X = composites[channel].dropna("IMFs")
 
