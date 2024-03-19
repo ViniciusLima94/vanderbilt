@@ -109,19 +109,6 @@ for channel in channels[:1]:
 
     W = xr.DataArray(W, dims=dims, coords=coords)
 
-    # W = tfr_array_morlet(
-        # X.transpose("blocks", "IMFs", "times"),
-        # 1000,
-        # fvec,
-        # n_cycles=fvec / 2,
-        # decim=10,
-        # n_jobs=20,
-    # ).squeeze()
-
-    # dims = ("batches", "IMFs", "freqs", "times")
-    # coords = dict(freqs=fvec)
-    # W = xr.DataArray((W * W.conj()).real, dims=dims, coords=coords)
-
     labeled_bursts = []
     for ii in range(W.shape[1]):
         labeled_bursts.append( np.stack(parallel(p_fun(_W) for _W in W[:, ii])) )
@@ -148,76 +135,3 @@ for channel in channels[:1]:
     W.to_netcdf(os.path.join(SAVE_TO, FILE_NAME_SPEC))
 
     del labeled_bursts
-
-    # fvec_theta = np.linspace(bands[channel]["theta"][0], bands[channel]["theta"][1], 30)
-    # fvec_gamma = np.linspace(bands[channel]["gamma"][0], bands[channel]["gamma"][1], 30)
-
-    # n_cycles_theta = np.floor(X.shape[-1] / 10000 * (2.0 * np.pi * fvec_theta[0]))
-    # W_theta = tfr_array_morlet(
-        # X.sel(components=0, channels=[channel]).transpose(
-            # "blocks", "channels", "times"
-        # ),
-        # 1000,
-        # fvec_theta,
-        # n_cycles=n_cycles_theta,
-        # decim=10,
-        # n_jobs=20,
-    # ).squeeze()
-
-    # dims = ("batches", "freqs", "times")
-    # coords = dict(freqs=fvec_theta)
-    # W_theta = xr.DataArray((W_theta * W_theta.conj()).real, dims=dims, coords=coords)
-
-    # W_gamma = tfr_array_morlet(
-        # X.sel(components=1, channels=[channel]).transpose(
-            # "blocks", "channels", "times"
-        # ),
-        # 1000,
-        # fvec_gamma,
-        # decim=10,
-        # n_cycles=fvec_gamma / 2,
-        # n_jobs=20,
-    # ).squeeze()
-
-    # dims = ("batches", "freqs", "times")
-    # coords = dict(freqs=fvec_gamma)
-    # W_gamma = xr.DataArray((W_gamma * W_gamma.conj()).real, dims=dims, coords=coords)
-
-    # Detect burts
-    # slow
-    # labeled_theta_bursts = np.stack(parallel(p_fun(W) for W in W_theta))
-
-    # fast
-    # labeled_gamma_bursts = np.stack(parallel(p_fun(W) for W in W_gamma))
-
-    # Attributes from composites
-    # attrs = composites[channel].attrs
-    # File name in which to save bursts
-    # FILE_NAME_BURSTS_SLOW = (
-    # f"labeled_bursts_slow_{channel}_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
-    # )
-    # FILE_NAME_BURSTS_FAST = (
-    # f"labeled_bursts_fast_{channel}_{condition}_method_{method}_max_imfs_{max_imfs}_std_{std}.nc"
-    # )
-
-    # labeled_theta_bursts = xr.DataArray(
-        # labeled_theta_bursts,
-        # dims=("blocks", "freqs", "times"),
-        # coords={"freqs": fvec_theta},
-    # )
-    # labeled_theta_bursts.attrs = attrs
-    # labeled_theta_bursts.attrs["band"] = bands[channel]["theta"]
-    # # BURSTS_SLOW += [labeled_theta_bursts.copy()]
-    # labeled_theta_bursts.to_netcdf(os.path.join(SAVE_TO, FILE_NAME_BURSTS_SLOW))
-    # del labeled_theta_bursts
-
-    # labeled_gamma_bursts = xr.DataArray(
-        # labeled_gamma_bursts,
-        # dims=("blocks", "freqs", "times"),
-        # coords={"freqs": fvec_gamma},
-    # )
-    # labeled_gamma_bursts.attrs = attrs
-    # labeled_gamma_bursts.attrs["band"] = bands[channel]["gamma"]
-    # # BURSTS_FAST += [labeled_gamma_bursts.copy()]
-    # labeled_gamma_bursts.to_netcdf(os.path.join(SAVE_TO, FILE_NAME_BURSTS_FAST))
-    # del labeled_gamma_bursts
