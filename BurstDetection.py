@@ -143,3 +143,4 @@ for channel in channels:
     W.astype(int).to_netcdf(os.path.join(SAVE_TO, FILE_NAME_SPEC))
 
     del labeled_bursts
+
