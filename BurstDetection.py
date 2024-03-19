@@ -71,11 +71,15 @@ n_blocks = composites.sizes["blocks"]
 # Decompose the signal in time and frequency domain
 ##############################################################################
 
+def get_init_threshold(W):
+    z  = (W - W.mean("times")) / W.std("times")
+    return z.quantile(.99).data.item(), z.quantile(.95).data.item()
 
 def _for_batch(W):
-    init = int(((W.max("times") - W.mean("times")) / W.std("times")).max().data.item())
-    init = np.floor(init)
-    return detect_bursts(W, init, 0, 0.5,
+    # init = int(((W.max("times") - W.mean("times")) / W.std("times")).max().data.item())
+    # init = np.floor(init)
+    t0, tf = get_init_threshold(W)
+    return detect_bursts(W, t0, tf, 0.1,
                          zscore_dims=("times", "freqs"),
                          verbose=False)
 
@@ -89,7 +93,7 @@ SAVE_TO = os.path.expanduser(f"~/funcog/HoffmanData/{monkey}/{session}/bursts")
 if not os.path.exists(SAVE_TO):
     os.makedirs(SAVE_TO)
 
-fvec = np.linspace(0.1, 150, 100)
+fvec = np.linspace(4, 150, 100)
 
 for channel in channels:
 
@@ -99,8 +103,8 @@ for channel in channels:
         X.transpose("blocks", "IMFs", "times"),
         1000,
         fvec,
-        n_cycles=np.maximum(fvec / 4, 1),
-        time_bandwidth=2,
+        n_cycles=6,#np.maximum(fvec / 4, 1),
+        time_bandwidth=4,
         decim=10,
         output="power",
         n_jobs=20,
