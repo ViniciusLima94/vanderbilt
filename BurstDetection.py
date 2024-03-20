@@ -70,10 +70,11 @@ n_blocks = composites.sizes["blocks"]
 ##############################################################################
 # Decompose the signal in time and frequency domain
 ##############################################################################
-
 def get_init_threshold(W):
-    z  = (W - W.mean("times")) / W.std("times")
-    return z.quantile(.99).data.item(), z.quantile(.95).data.item()
+    z = (W - W.mean(("times", "freqs"))) / W.std(("times", "freqs"))
+    return np.ceil(z.quantile(0.95).data.item()), max(
+        0.1, np.round(z.quantile(0.75).data.item(), 2)
+    )
 
 def _for_batch(W):
     # init = int(((W.max("times") - W.mean("times")) / W.std("times")).max().data.item())
@@ -143,4 +144,3 @@ for channel in channels:
     W.astype(int).to_netcdf(os.path.join(SAVE_TO, FILE_NAME_SPEC))
 
     del labeled_bursts
-
