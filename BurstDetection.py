@@ -77,8 +77,6 @@ def get_init_threshold(W):
     )
 
 def _for_batch(W):
-    # init = int(((W.max("times") - W.mean("times")) / W.std("times")).max().data.item())
-    # init = np.floor(init)
     t0, tf = get_init_threshold(W)
     return detect_bursts(W, t0, tf, 0.1,
                          zscore_dims=("times", "freqs"),
